@@ -1,0 +1,12 @@
+[[remotes]]
+git_url = "https://github.com/woodleighschool/.github"
+ref = "main"
+configs = ["lefthook.common.toml"]
+
+[pre-commit.commands.format-app]
+glob = ["apps/**/*.{ts,tsx,js,jsx,css}", "packages/**/*.{ts,tsx,js,jsx,css}"]
+run = "oxfmt --no-error-on-unmatched-pattern {staged_files}"
+stage_fixed = true
+
+[commit-msg.commands.commitlint]
+run = "commitlint --default-config --edit {1}"

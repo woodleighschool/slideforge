@@ -1,0 +1,40 @@
+[tasks.deps]
+description = "Install core package dependencies"
+run = "pnpm install --frozen-lockfile"
+
+[tasks.build]
+description = "Type-check the core package (nothing to bundle — consumed as source)"
+depends = [":deps"]
+run = "pnpm run typecheck"
+
+[tasks.test]
+description = "Test the core package"
+depends = [":deps"]
+run = "pnpm run test"
+
+[tasks.typecheck]
+description = "Type-check the core package"
+depends = [":deps"]
+run = "pnpm run typecheck"
+
+[tasks.lint]
+description = "Lint the core package"
+depends = [":deps"]
+run = "pnpm run lint"
+
+[tasks.lint-fix]
+description = "Fix core package lint issues"
+depends = [":deps"]
+run = "pnpm run lint:fix"
+
+[tasks.format]
+description = "Format core package code"
+run = "pnpm run format"
+
+[tasks.fmt-check]
+description = "Check core package formatting"
+run = "pnpm run format:check"
+
+[tasks.clean]
+description = "Remove core package build output"
+run = "rm -rf node_modules/.tmp .vitest"
