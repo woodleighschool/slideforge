@@ -1,27 +1,38 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  CheckIcon,
+  FileArchiveIcon,
+  FileCode2Icon,
+  HammerIcon,
+  ImageIcon,
+  PresentationIcon,
+} from "lucide-react";
+import type { ReactNode } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 function Row({
   step,
   title,
-  sub,
+  description,
   trailing,
 }: {
   step: number;
   title: string;
-  sub: string;
-  trailing: React.ReactNode;
+  description: string;
+  trailing: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 py-2.5">
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-navy text-xs font-bold text-white">
+    <div className="flex items-center gap-3 py-3">
+      <Badge variant="secondary" className="size-6 rounded-full p-0">
         {step}
-      </span>
+      </Badge>
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-foreground">{title}</div>
-        <div className="text-xs text-muted-foreground">{sub}</div>
+        <div className="text-sm font-medium">{title}</div>
+        <div className="text-xs text-muted-foreground">{description}</div>
       </div>
-      <div className="shrink-0 text-sm text-muted-foreground">{trailing}</div>
+      <div className="shrink-0 text-muted-foreground">{trailing}</div>
     </div>
   );
 }
@@ -40,43 +51,68 @@ export function HowItWorks({
   ready: boolean;
 }) {
   return (
-    <Card>
+    <Card className="self-start">
       <CardHeader>
-        <CardTitle>🔨 How it works</CardTitle>
+        <CardTitle>How it works</CardTitle>
+        <CardDescription>Your presentation takes shape as you complete each step.</CardDescription>
       </CardHeader>
-      <CardContent className="divide-y divide-border">
+      <CardContent className="divide-y">
         <Row
           step={1}
-          title="Presentation Name"
-          sub="Name your presentation"
+          title="Presentation name"
+          description="Name your presentation"
           trailing={presentationName.trim() || "Lesson 6"}
         />
-        <Row step={2} title="Resources" sub="Select the resources ZIP" trailing={hasZip ? "✅" : "📁"} />
+        <Row
+          step={2}
+          title="Resources"
+          description="Select the resources ZIP"
+          trailing={
+            hasZip ? (
+              <CheckIcon className="size-4 text-success" />
+            ) : (
+              <FileArchiveIcon className="size-4" />
+            )
+          }
+        />
         <Row
           step={3}
-          title="Paste Lesson HTML"
-          sub="Paste the lesson HTML you copied"
-          trailing={hasHtml ? "✅" : "</>"}
+          title="Paste lesson HTML"
+          description="Paste the lesson HTML you copied"
+          trailing={
+            hasHtml ? (
+              <CheckIcon className="size-4 text-success" />
+            ) : (
+              <FileCode2Icon className="size-4" />
+            )
+          }
         />
         <Row
           step={4}
-          title="Choose Output"
-          sub="PowerPoint or Lesson Pages"
+          title="Choose output"
+          description="PowerPoint or lesson pages"
           trailing={
-            <span className="space-x-1">
-              <span className={cn(outputFormat !== "pptx" && "opacity-30")}>📊</span>
-              <span className={cn(outputFormat !== "png" && "opacity-30")}>🖼️</span>
+            <span className="flex gap-1">
+              <PresentationIcon className={cn("size-4", outputFormat !== "pptx" && "opacity-30")} />
+              <ImageIcon className={cn("size-4", outputFormat !== "png" && "opacity-30")} />
             </span>
           }
         />
-        <Row step={5} title="Forge Presentation" sub="Click and let SlideFORGE build it" trailing="🔨" />
+        <Row
+          step={5}
+          title="Forge presentation"
+          description="Build and download it"
+          trailing={<HammerIcon className="size-4" />}
+        />
 
         {ready && (
-          <div className="flex items-center gap-3 pt-3">
-            <span aria-hidden>✅</span>
+          <div className="flex items-center gap-3 pt-4">
+            <CheckIcon className="size-4 text-success" />
             <div>
-              <div className="text-sm font-semibold text-foreground">Your Presentation is Ready!</div>
-              <div className="text-xs text-muted-foreground">Open your .pptx file and give it a look.</div>
+              <div className="text-sm font-medium">Your presentation is ready</div>
+              <div className="text-xs text-muted-foreground">
+                Open the PowerPoint and review it.
+              </div>
             </div>
           </div>
         )}

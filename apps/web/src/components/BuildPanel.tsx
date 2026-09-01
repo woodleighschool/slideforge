@@ -1,28 +1,60 @@
+import {
+  CheckCircle2Icon,
+  FileArchiveIcon,
+  FileCode2Icon,
+  FolderOpenIcon,
+  HammerIcon,
+  ImageIcon,
+  PresentationIcon,
+  SearchIcon,
+  TriangleAlertIcon,
+  XCircleIcon,
+} from "lucide-react";
 import { useRef, useState } from "react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+  FieldTitle,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import type { Builder } from "@/lib/useBuilder";
 import { cn } from "@/lib/utils";
 
-function isOutputFormat(value: string): value is "pptx" | "png" {
+function isOutputFormat(value: unknown): value is "pptx" | "png" {
   return value === "pptx" || value === "png";
 }
 
-function StepLabel({ n, title, sub }: { n: number; title: string; sub: string }) {
+function StepHeading({
+  step,
+  title,
+  description,
+}: {
+  step: number;
+  title: string;
+  description: string;
+}) {
   return (
-    <div className="mb-2">
-      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-forge-orange text-xs font-bold text-white">
-          {n}
-        </span>
-        {title}
+    <div className="flex items-start gap-2">
+      <Badge variant="secondary" className="size-5 rounded-full p-0">
+        {step}
+      </Badge>
+      <div className="flex flex-col gap-0.5">
+        <FieldTitle>{title}</FieldTitle>
+        <FieldDescription>{description}</FieldDescription>
       </div>
-      <div className="ml-7 text-xs text-muted-foreground">{sub}</div>
     </div>
   );
 }
@@ -33,6 +65,32 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function ResourceStatus({ status }: { status: Builder["resourceStatus"] }) {
+  if (status.kind === "idle") return null;
+
+  if (status.kind === "reading") {
+    return (
+      <Alert aria-live="polite">
+        <Spinner />
+        <AlertTitle>Reading resources</AlertTitle>
+        <AlertDescription>{status.message}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  const Icon = status.kind === "success" ? CheckCircle2Icon : XCircleIcon;
+
+  return (
+    <Alert variant={status.kind === "error" ? "destructive" : "success"} aria-live="polite">
+      <Icon />
+      <AlertTitle>
+        {status.kind === "success" ? "Resources ready" : "Resources could not be read"}
+      </AlertTitle>
+      <AlertDescription>{status.message}</AlertDescription>
+    </Alert>
+  );
+}
+
 export function BuildPanel({ builder }: { builder: Builder }) {
   const zipInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -41,217 +99,242 @@ export function BuildPanel({ builder }: { builder: Builder }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>🔨 Build Your Presentation</CardTitle>
+        <CardTitle>Build your presentation</CardTitle>
+        <CardDescription>
+          Work through the five steps, then forge an editable PowerPoint.
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div>
-          <StepLabel n={1} title="Presentation Name" sub="Name your presentation" />
-          <Input
-            placeholder="e.g. Lesson 6 — Understanding Scams"
-            value={builder.presentationName}
-            onChange={(e) => builder.setPresentationName(e.target.value)}
-          />
-        </div>
+      <CardContent>
+        <FieldGroup>
+          <Field>
+            <StepHeading step={1} title="Presentation name" description="Name your presentation" />
+            <Input
+              id="presentation-name"
+              aria-label="Presentation name"
+              placeholder="e.g. Lesson 6 — Understanding Scams"
+              value={builder.presentationName}
+              onChange={(event) => builder.setPresentationName(event.target.value)}
+            />
+          </Field>
 
-        <div>
-          <StepLabel
-            n={2}
-            title="Resources"
-            sub="(Linked to the HTML code) Select the resources folder or ZIP"
-          />
-          <button
-            type="button"
-            onClick={() => zipInputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              const file = e.dataTransfer.files?.[0];
-              if (file) void builder.handleZipFile(file);
-            }}
-            className={cn(
-              "w-full rounded-lg border-2 border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground transition-colors",
-              dragOver && "border-forge-orange bg-forge-orange/5",
-            )}
-          >
-            <strong className="text-foreground">Click to choose</strong> or drag &amp; drop your
-            resources .zip here
-          </button>
-          <input
-            ref={zipInputRef}
-            type="file"
-            accept=".zip"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void builder.handleZipFile(file);
-            }}
-          />
-
-          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
-          </div>
-          <button
-            type="button"
-            onClick={() => folderInputRef.current?.click()}
-            className="mt-2 w-full rounded-lg border border-border px-4 py-2 text-center text-sm text-muted-foreground transition-colors hover:border-forge-orange hover:text-foreground"
-          >
-            📁 Choose the exported resources folder —{" "}
-            <strong className="text-foreground">no zipping needed</strong>
-          </button>
-          <input
-            ref={folderInputRef}
-            type="file"
-            webkitdirectory=""
-            directory=""
-            multiple
-            hidden
-            onChange={(e) => {
-              const files = e.target.files;
-              if (files && files.length > 0) void builder.handleFolderFiles(files);
-              // Allow re-selecting the same folder after a change on disk.
-              e.target.value = "";
-            }}
-          />
-
-          {builder.resourceStatusText && (
-            <p
+          <Field>
+            <StepHeading
+              step={2}
+              title="Resources"
+              description="Select the exported resources folder or ZIP linked from the lesson HTML"
+            />
+            <Button
+              type="button"
+              variant="outline"
               className={cn(
-                "mt-2 text-xs",
-                builder.resourceStatusKind === "success" && "text-emerald-600",
-                builder.resourceStatusKind === "warning" && "text-amber-600",
-                builder.resourceStatusKind === "error" && "text-destructive",
+                "h-auto w-full flex-col border-dashed py-6 text-muted-foreground",
+                dragOver && "border-primary bg-primary/5 text-foreground",
               )}
+              onClick={() => zipInputRef.current?.click()}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragOver(false);
+                const file = event.dataTransfer.files[0];
+                if (file) void builder.handleZipFile(file);
+              }}
             >
-              {builder.resourceStatusText}
-            </p>
-          )}
-
-          {builder.lastZipInfo && (
-            <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3">
-              <p className="text-sm">
-                Found your last resources file — <strong>{builder.lastZipInfo.name}</strong> (
-                {formatBytes(builder.lastZipInfo.size)}). Do you want to select a different
-                resources file?
-              </p>
-              <div className="mt-2 flex gap-2">
-                <Button size="sm" onClick={builder.useLastZip}>
-                  No, Use This File
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    builder.dismissLastZipSuggestion();
-                    zipInputRef.current?.click();
-                  }}
-                >
-                  Yes, Choose Different File
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div>
-          <StepLabel
-            n={3}
-            title="Paste Lesson HTML"
-            sub="Paste the lesson HTML you copied from your LMS"
-          />
-          <Textarea
-            placeholder="Paste the raw lesson HTML here…"
-            className="min-h-32 font-mono text-xs"
-            value={builder.lessonHTML}
-            onChange={(e) => builder.setLessonHTML(e.target.value)}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-2"
-            disabled={!builder.lessonHTML.trim()}
-            onClick={builder.openPreview}
-          >
-            Preview Parsed Content
-          </Button>
-        </div>
-
-        <div>
-          <StepLabel n={4} title="Choose Output" sub="PowerPoint or Lesson Pages (Images)" />
-          <RadioGroup
-            value={builder.outputFormat}
-            onValueChange={(value) => {
-              if (isOutputFormat(value)) builder.setOutputFormat(value);
-            }}
-            className="grid grid-cols-1 gap-2 sm:grid-cols-2"
-          >
-            <Label
-              className={cn(
-                "flex cursor-pointer items-center gap-2 rounded-lg border border-border p-3 text-sm",
-                builder.outputFormat === "pptx" && "border-forge-orange bg-forge-orange/5",
-              )}
-            >
-              <RadioGroupItem value="pptx" />📊 PowerPoint (.pptx)
-            </Label>
-            <Label
-              title="Coming soon in the web version"
-              className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-border p-3 text-sm text-muted-foreground opacity-60"
-            >
-              <RadioGroupItem value="png" disabled />
-              🖼️ Lesson Pages (.png)
-              <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase">
-                Coming soon
+              <FileArchiveIcon />
+              <span>
+                <strong className="font-medium text-foreground">Choose a file</strong> or drag and
+                drop a resources ZIP
               </span>
-            </Label>
-          </RadioGroup>
-        </div>
-
-        <div>
-          <StepLabel
-            n={5}
-            title="Forge Presentation"
-            sub="Click and let SlideFORGE build your presentation"
-          />
-          <Button
-            className="w-full bg-forge-orange text-white hover:bg-forge-orange/90"
-            disabled={builder.forging}
-            onClick={builder.forge}
-          >
-            🔨 Forge Presentation
-          </Button>
-
-          {builder.forging && (
-            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-forge-orange border-t-transparent" />
-              {builder.forgeMessage}
+            </Button>
+            <input
+              ref={zipInputRef}
+              type="file"
+              accept=".zip,application/zip"
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void builder.handleZipFile(file);
+              }}
+            />
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
             </div>
-          )}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto w-full flex-col whitespace-normal py-4 text-center text-muted-foreground"
+              onClick={() => folderInputRef.current?.click()}
+            >
+              <FolderOpenIcon />
+              <span>
+                Choose the exported resources folder —
+                <strong className="ml-1 font-medium text-foreground">no zipping needed</strong>
+              </span>
+            </Button>
+            <input
+              ref={folderInputRef}
+              type="file"
+              webkitdirectory=""
+              directory=""
+              multiple
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(event) => {
+                const files = event.target.files;
+                if (files?.length) void builder.handleFolderFiles(files);
+                event.target.value = "";
+              }}
+            />
+            <ResourceStatus status={builder.resourceStatus} />
 
-          {builder.done && (
-            <div className="mt-3 flex gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-              <span aria-hidden>✅</span>
-              <div>
-                <strong>Your presentation is ready!</strong>
-                <br />
-                It&apos;s been downloaded to your browser&apos;s Downloads folder — open it and give
-                it a look before sharing.
-              </div>
-            </div>
-          )}
+            {builder.lastZipInfo && (
+              <Alert>
+                <FileArchiveIcon />
+                <AlertTitle>Use your last resources file?</AlertTitle>
+                <AlertDescription className="flex flex-col gap-3">
+                  <p>
+                    {builder.lastZipInfo.name} ({formatBytes(builder.lastZipInfo.size)}) is stored
+                    in this browser.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => void builder.selectLastZip()}>
+                      Use this file
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        builder.dismissLastZipSuggestion();
+                        zipInputRef.current?.click();
+                      }}
+                    >
+                      Choose a different file
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+          </Field>
 
-          {builder.error && (
-            <div className="mt-3 flex gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-              <span aria-hidden>⚠️</span>
-              <div>{builder.error}</div>
-            </div>
-          )}
-        </div>
+          <Field>
+            <StepHeading
+              step={3}
+              title="Paste lesson HTML"
+              description="Paste the lesson HTML you copied from Seqta"
+            />
+            <Textarea
+              id="lesson-html"
+              aria-label="Lesson HTML"
+              placeholder="Paste the raw lesson HTML here…"
+              className="min-h-32 font-mono text-xs"
+              value={builder.lessonHTML}
+              onChange={(event) => builder.setLessonHTML(event.target.value)}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-start"
+              disabled={!builder.lessonHTML.trim()}
+              onClick={builder.openPreview}
+            >
+              <SearchIcon data-icon="inline-start" />
+              Preview parsed content
+            </Button>
+          </Field>
+
+          <FieldSet>
+            <FieldLegend className="flex items-start gap-2">
+              <Badge variant="secondary" className="size-5 rounded-full p-0">
+                4
+              </Badge>
+              <span>Choose output</span>
+            </FieldLegend>
+            <FieldDescription>PowerPoint or lesson pages</FieldDescription>
+            <RadioGroup
+              value={builder.outputFormat}
+              onValueChange={(value) => {
+                if (isOutputFormat(value)) builder.setOutputFormat(value);
+              }}
+              className="grid-cols-1 sm:grid-cols-2"
+            >
+              <FieldLabel>
+                <Field orientation="horizontal">
+                  <RadioGroupItem value="pptx" />
+                  <PresentationIcon />
+                  <FieldContent>
+                    <FieldTitle>PowerPoint</FieldTitle>
+                    <FieldDescription>Editable .pptx presentation</FieldDescription>
+                  </FieldContent>
+                </Field>
+              </FieldLabel>
+              <FieldLabel data-disabled="true">
+                <Field orientation="horizontal" data-disabled="true">
+                  <RadioGroupItem value="png" disabled />
+                  <ImageIcon />
+                  <FieldContent>
+                    <FieldTitle className="flex items-center gap-2">
+                      Lesson pages <Badge variant="outline">Coming soon</Badge>
+                    </FieldTitle>
+                    <FieldDescription>Individual .png images</FieldDescription>
+                  </FieldContent>
+                </Field>
+              </FieldLabel>
+            </RadioGroup>
+          </FieldSet>
+
+          <Field>
+            <StepHeading
+              step={5}
+              title="Forge presentation"
+              description="Build and download the presentation"
+            />
+            <Button
+              className="w-full"
+              disabled={builder.forgeState.kind === "forging"}
+              onClick={builder.forge}
+            >
+              {builder.forgeState.kind === "forging" ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <HammerIcon data-icon="inline-start" />
+              )}
+              {builder.forgeState.kind === "forging" ? "Forging…" : "Forge presentation"}
+            </Button>
+
+            {builder.forgeState.kind === "forging" && (
+              <Alert aria-live="polite">
+                <FileCode2Icon />
+                <AlertTitle>Building your presentation</AlertTitle>
+                <AlertDescription>{builder.forgeState.message}</AlertDescription>
+              </Alert>
+            )}
+
+            {builder.forgeState.kind === "success" && (
+              <Alert variant="success" aria-live="polite">
+                <CheckCircle2Icon />
+                <AlertTitle>Your presentation is ready</AlertTitle>
+                <AlertDescription>
+                  It has been downloaded to your browser. Open the PowerPoint and review it before
+                  sharing.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {builder.forgeState.kind === "error" && (
+              <Alert variant="destructive" aria-live="assertive">
+                <TriangleAlertIcon />
+                <AlertTitle>Presentation could not be built</AlertTitle>
+                <AlertDescription>{builder.forgeState.message}</AlertDescription>
+              </Alert>
+            )}
+          </Field>
+        </FieldGroup>
       </CardContent>
     </Card>
   );

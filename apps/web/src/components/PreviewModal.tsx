@@ -1,8 +1,10 @@
 import { blockMeta, type LessonBlock } from "@slideforge/core";
 
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -18,30 +20,31 @@ export function PreviewModal({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between gap-3">
-            <span>Parsed Content</span>
-            <span className="text-sm font-normal text-muted-foreground">
+      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader className="pr-10">
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle>Parsed content</DialogTitle>
+            <Badge variant="secondary">
               {blocks.length} block{blocks.length === 1 ? "" : "s"}
-            </span>
-          </DialogTitle>
+            </Badge>
+          </div>
+          <DialogDescription>
+            This is the ordered content SlideFORGE will use to build the presentation.
+          </DialogDescription>
         </DialogHeader>
 
         {blocks.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Paste lesson HTML above to see it broken down here.
+            Paste lesson HTML to see it broken down here.
           </p>
         ) : (
-          <ul className="divide-y divide-border">
+          <ul className="divide-y">
             {blocks.map((block, index) => {
               const meta = blockMeta(block);
               return (
-                <li key={index} className="py-2.5">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-forge-orange">
-                    {meta.label}
-                  </div>
-                  <div className="truncate text-sm text-foreground">{meta.summary}</div>
+                <li key={`${meta.label}-${index}`} className="py-3">
+                  <Badge variant="outline">{meta.label}</Badge>
+                  <div className="mt-1 truncate text-sm">{meta.summary}</div>
                 </li>
               );
             })}

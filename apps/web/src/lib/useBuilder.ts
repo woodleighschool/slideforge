@@ -1,6 +1,5 @@
 import {
   buildGenerationInput,
-  generatePptx,
   importResourceFolder,
   importResourceZip,
   parseLessonHTML,
@@ -10,98 +9,100 @@ import { useEffect, useState } from "react";
 
 import { loadLastResourceZip, saveLastResourceZip, type LastResourceZip } from "@/lib/idbStore";
 
-type ResourceStatusKind = "success" | "warning" | "error" | null;
+export type ResourceStatus =
+  | { kind: "idle" }
+  | { kind: "reading"; message: string }
+  | { kind: "success" | "error"; message: string };
+
+export type ForgeState =
+  | { kind: "idle" }
+  | { kind: "forging"; message: string }
+  | { kind: "success" }
+  | { kind: "error"; message: string };
 
 export function useBuilder() {
   const [presentationName, setPresentationName] = useState("");
-
   const [resources, setResources] = useState<ResourceMap | null>(null);
-  const [resourceStatusText, setResourceStatusText] = useState("");
-  const [resourceStatusKind, setResourceStatusKind] = useState<ResourceStatusKind>(null);
+  const [resourceStatus, setResourceStatus] = useState<ResourceStatus>({ kind: "idle" });
   const [lastZipInfo, setLastZipInfo] = useState<LastResourceZip | null>(null);
-
   const [lessonHTML, setLessonHTML] = useState("");
-
   const [outputFormat, setOutputFormat] = useState<"pptx" | "png">("pptx");
-
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewBlocks, setPreviewBlocks] = useState<LessonBlock[]>([]);
-
-  const [forging, setForging] = useState(false);
-  const [forgeMessage, setForgeMessage] = useState("");
-  const [done, setDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [tipJarVisible, setTipJarVisible] = useState(false);
+  const [forgeState, setForgeState] = useState<ForgeState>({ kind: "idle" });
 
   useEffect(() => {
-    void (async () => {
-      const last = await loadLastResourceZip();
-      if (last?.blob) setLastZipInfo(last);
-    })();
+    let cancelled = false;
+
+    async function restoreLastZip() {
+      const lastZip = await loadLastResourceZip();
+      if (!cancelled && lastZip) setLastZipInfo(lastZip);
+    }
+
+    void restoreLastZip();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function handleZipFile(file: File) {
     setLastZipInfo(null);
-    setResourceStatusKind(null);
-    setResourceStatusText("Reading zip…");
+    setResourceStatus({ kind: "reading", message: `Reading ${file.name}…` });
 
     try {
       const result = await importResourceZip(file);
       setResources(result.resources);
-      setResourceStatusText(
-        result.isComplete
-          ? `Loaded ${result.extractedFileCount} resource${result.extractedFileCount === 1 ? "" : "s"} from ${file.name}`
-          : `Loaded ${result.extractedFileCount}/${result.expectedFileCount} resources — the zip may be incomplete`,
-      );
-      setResourceStatusKind(result.isComplete ? "success" : "warning");
-      await saveLastResourceZip(file);
-    } catch (err) {
-      setResourceStatusText(
-        `Couldn't read this zip: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      setResourceStatusKind("error");
+      setResourceStatus({
+        kind: "success",
+        message: `Loaded ${result.fileCount} resource${result.fileCount === 1 ? "" : "s"} from ${file.name}.`,
+      });
+
+      try {
+        await saveLastResourceZip(file);
+      } catch {
+        // The selected resources remain usable when browser persistence is unavailable.
+      }
+    } catch (error) {
       setResources(null);
+      setResourceStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
-  /** The exported Seqta resources folder, selected directly — no zip step. */
   async function handleFolderFiles(fileList: FileList) {
-    setLastZipInfo(null);
-    setResourceStatusKind(null);
-    setResourceStatusText("Reading folder…");
-
     const files = Array.from(fileList);
-    const folderName = files[0]?.webkitRelativePath.split("/")[0] ?? "the selected folder";
+    const folderName = files[0]?.webkitRelativePath.split("/")[0] || "selected folder";
+
+    setLastZipInfo(null);
+    setResourceStatus({ kind: "reading", message: `Reading ${folderName}…` });
 
     try {
       const result = await importResourceFolder(files);
       setResources(result.resources);
-      setResourceStatusText(
-        result.isComplete
-          ? `Loaded ${result.extractedFileCount} resource${result.extractedFileCount === 1 ? "" : "s"} from ${folderName}`
-          : `Loaded ${result.extractedFileCount}/${result.expectedFileCount} resources — the folder may be incomplete`,
-      );
-      setResourceStatusKind(result.isComplete ? "success" : "warning");
-    } catch (err) {
-      setResourceStatusText(
-        `Couldn't read this folder: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      setResourceStatusKind("error");
+      setResourceStatus({
+        kind: "success",
+        message: `Loaded ${result.fileCount} resource${result.fileCount === 1 ? "" : "s"} from ${folderName}.`,
+      });
+    } catch (error) {
       setResources(null);
+      setResourceStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
-  async function useLastZip() {
+  async function selectLastZip() {
     if (!lastZipInfo) return;
-    setLastZipInfo(null);
+
     const file = new File([lastZipInfo.blob], lastZipInfo.name, {
       lastModified: lastZipInfo.lastModified,
     });
-    await handleZipFile(file);
-  }
-
-  function dismissLastZipSuggestion() {
     setLastZipInfo(null);
+    await handleZipFile(file);
   }
 
   function openPreview() {
@@ -110,16 +111,12 @@ export function useBuilder() {
   }
 
   async function forge() {
-    setError(null);
-    setDone(false);
-
     if (!lessonHTML.trim()) {
-      setError("Paste your lesson HTML before forging.");
+      setForgeState({ kind: "error", message: "Paste your lesson HTML before forging." });
       return;
     }
 
-    setForging(true);
-    setForgeMessage("Forging your presentation…");
+    setForgeState({ kind: "forging", message: "Assembling slides…" });
 
     try {
       const input = buildGenerationInput({
@@ -129,19 +126,20 @@ export function useBuilder() {
       });
 
       if (input.unmatchedImages.length > 0) {
-        setForgeMessage(
-          `Forging… (${input.unmatchedImages.length} image${input.unmatchedImages.length === 1 ? "" : "s"} couldn't be matched — they'll show as a placeholder)`,
-        );
+        setForgeState({
+          kind: "forging",
+          message: `${input.unmatchedImages.length} image${input.unmatchedImages.length === 1 ? "" : "s"} could not be matched and will use a placeholder.`,
+        });
       }
 
+      const { generatePptx } = await import("@slideforge/core/generate");
       await generatePptx(input);
-
-      setDone(true);
-      setTipJarVisible(true);
-    } catch (err) {
-      setError(`Forging failed: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setForging(false);
+      setForgeState({ kind: "success" });
+    } catch (error) {
+      setForgeState({
+        kind: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -149,8 +147,7 @@ export function useBuilder() {
     presentationName,
     setPresentationName,
     resources,
-    resourceStatusText,
-    resourceStatusKind,
+    resourceStatus,
     lastZipInfo,
     lessonHTML,
     setLessonHTML,
@@ -159,16 +156,11 @@ export function useBuilder() {
     previewOpen,
     setPreviewOpen,
     previewBlocks,
-    forging,
-    forgeMessage,
-    done,
-    error,
-    tipJarVisible,
-    dismissTipJar: () => setTipJarVisible(false),
+    forgeState,
     handleZipFile,
     handleFolderFiles,
-    useLastZip,
-    dismissLastZipSuggestion,
+    selectLastZip,
+    dismissLastZipSuggestion: () => setLastZipInfo(null),
     openPreview,
     forge,
   };

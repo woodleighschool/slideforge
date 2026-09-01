@@ -262,14 +262,19 @@ async function addContentSlide(
       });
     } else if (block.kind === "table") {
       flushParagraphBuffer();
-      const rows = block.data.map((row) => row.map((cell) => ({ text: cell, options: { fontSize: 12 } })));
-      currentSlide.addTable(rows as never, {
-        x: 0.5,
-        y: textY,
-        w: textW,
-        border: { type: "solid", color: theme.border, pt: 1 },
-        fill: { color: "FFFFFF" },
-      } as never);
+      const rows = block.data.map((row) =>
+        row.map((cell) => ({ text: cell, options: { fontSize: 12 } })),
+      );
+      currentSlide.addTable(
+        rows as never,
+        {
+          x: 0.5,
+          y: textY,
+          w: textW,
+          border: { type: "solid", color: theme.border, pt: 1 },
+          fill: { color: "FFFFFF" },
+        } as never,
+      );
     } else if (block.kind === "resource") {
       flushParagraphBuffer();
       currentSlide.addText(`Attached resource\n${block.data}`, {
@@ -299,18 +304,21 @@ async function addContentSlide(
         if (!item || item.kind !== "image" || !box) continue;
         const image = item.image;
         if (!image.dataUrl) {
-          currentSlide.addText(`Missing resource: ${image.filename || "unknown"} — insert manually`, {
-            x,
-            y: textY,
-            w: box.w,
-            h: box.h,
-            fontSize: 11,
-            color: "B00020",
-            italic: true,
-            align: "center",
-            valign: "middle",
-            line: { color: "B00020", width: 1 },
-          } as never);
+          currentSlide.addText(
+            `Missing resource: ${image.filename || "unknown"} — insert manually`,
+            {
+              x,
+              y: textY,
+              w: box.w,
+              h: box.h,
+              fontSize: 11,
+              color: "B00020",
+              italic: true,
+              align: "center",
+              valign: "middle",
+              line: { color: "B00020", width: 1 },
+            } as never,
+          );
         } else {
           currentSlide.addImage({ data: image.dataUrl, x, y: textY, w: box.w, h: box.h });
         }
@@ -324,7 +332,11 @@ async function addContentSlide(
   flushParagraphBuffer(); // render whatever paragraphs were still buffered at the end
 }
 
-function addVideoSlide(pptx: PptxGenJS, theme: Theme, slide: Extract<GenSlide, { type: "video" }>): void {
+function addVideoSlide(
+  pptx: PptxGenJS,
+  theme: Theme,
+  slide: Extract<GenSlide, { type: "video" }>,
+): void {
   const s = pptx.addSlide();
   s.background = { color: theme.navy };
 
@@ -365,7 +377,10 @@ function addVideoSlide(pptx: PptxGenJS, theme: Theme, slide: Extract<GenSlide, {
 }
 
 /** Resolves once the browser download has been triggered. */
-export async function generatePptx(data: GenerationInput, theme: Partial<Theme> = {}): Promise<void> {
+export async function generatePptx(
+  data: GenerationInput,
+  theme: Partial<Theme> = {},
+): Promise<void> {
   const resolvedTheme: Theme = { ...THEME_DEFAULTS, ...theme };
 
   const pptx = new PptxGenJS();

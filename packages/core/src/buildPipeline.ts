@@ -60,8 +60,6 @@ export function buildGenerationInput({
   return {
     outputName: safeName,
     slides,
-    parsedBlockCount: blocks.length,
     unmatchedImages,
-    blocks,
   };
 }

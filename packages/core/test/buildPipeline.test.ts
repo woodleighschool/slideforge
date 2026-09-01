@@ -40,9 +40,7 @@ function resourceMap(entries: Record<string, Partial<ResourceEntry>>): Map<strin
 describe("parseLessonHTML", () => {
   it("does not emit empty paragraph blocks for whitespace-only content", () => {
     const blocks = parseLessonHTML(LESSON_HTML);
-    const emptyParagraphs = blocks.filter(
-      (b) => b.type === "paragraphText" && b.runs.length === 0,
-    );
+    const emptyParagraphs = blocks.filter((b) => b.type === "paragraphText" && b.runs.length === 0);
     expect(emptyParagraphs).toHaveLength(0);
   });
 
@@ -73,7 +71,9 @@ describe("buildGenerationInput", () => {
     const videoSlide = result.slides.find((s) => s.type === "video");
     expect(videoSlide).toBeDefined();
 
-    const introSlide = result.slides.find((s) => s.type === "content" && s.title === "Introduction");
+    const introSlide = result.slides.find(
+      (s) => s.type === "content" && s.title === "Introduction",
+    );
     expect(introSlide).toBeDefined();
   });
 

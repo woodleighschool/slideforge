@@ -3,15 +3,14 @@ import { ForgeIcon } from "@/components/ForgeIcon";
 export function Header() {
   return (
     <header className="flex items-center gap-4">
-      <ForgeIcon className="h-16 w-16 shrink-0" />
-      <div>
-        <div className="text-2xl font-extrabold tracking-tight">
-          <span className="text-foreground">Slide</span>
-          <span className="text-forge-orange">FORGE</span>
-        </div>
-        <div className="text-sm text-muted-foreground">
-          Seqta lesson HTML → editable PowerPoint, right in your browser.
-        </div>
+      <ForgeIcon className="size-14 shrink-0 sm:size-16" />
+      <div className="min-w-0">
+        <h1 className="text-2xl font-extrabold tracking-tight">
+          Slide<span className="text-brand">FORGE</span>
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Seqta lesson HTML to editable PowerPoint, right in your browser.
+        </p>
       </div>
     </header>
   );

@@ -293,5 +293,8 @@ function lessonBlockForTag(tag: BracketTag): LessonBlock | null {
 /** Normalizes non-breaking space variants to a plain space, and trims outer
  * whitespace — without reordering or rewording anything. */
 function cleanText(raw: string): string {
-  return raw.replace(/\u00A0/g, " ").replace(/\u202F/g, " ").trim();
+  return raw
+    .replace(/\u00A0/g, " ")
+    .replace(/\u202F/g, " ")
+    .trim();
 }

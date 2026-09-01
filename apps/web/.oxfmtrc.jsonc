@@ -1,7 +1,7 @@
 {
   "printWidth": 100,
   "sortImports": {
-    "internalPattern": ["@/"]
+    "internalPattern": ["@/"],
   },
-  "ignorePatterns": ["dist/**", "pnpm-lock.yaml"]
+  "ignorePatterns": ["dist/**", "pnpm-lock.yaml"],
 }
