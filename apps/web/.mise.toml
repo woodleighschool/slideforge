@@ -49,6 +49,11 @@ description = "Regenerate Cloudflare Worker types"
 depends = [":deps"]
 run = "pnpm run types"
 
+[tasks.types-check]
+description = "Check generated Cloudflare Worker types"
+depends = [":deps"]
+run = "pnpm run types:check"
+
 [tasks.clean]
 description = "Remove web build output"
 run = "rm -rf dist .wrangler"
