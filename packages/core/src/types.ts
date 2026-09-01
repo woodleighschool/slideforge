@@ -53,9 +53,7 @@ export type ResourceMap = Map<string, ResourceEntry>;
 
 export interface ImportedResources {
   resources: ResourceMap;
-  extractedFileCount: number;
-  expectedFileCount: number;
-  isComplete: boolean;
+  fileCount: number;
 }
 
 export type GenImage = {
