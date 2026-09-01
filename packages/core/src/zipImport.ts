@@ -8,14 +8,19 @@
 //
 import JSZip from "jszip";
 
-import { detectWrapperFolder, stripWrapper } from "./pathUtils.js";
+import {
+  blobToDataURL,
+  detectWrapperFolder,
+  isMetadataPath,
+  stripWrapper,
+} from "./resourceImportUtils.js";
 import type { ImportedResources, ResourceEntry } from "./types.js";
 
 export async function importResourceZip(zipFile: File | Blob): Promise<ImportedResources> {
   const zip = await JSZip.loadAsync(zipFile);
 
   const realEntries = Object.values(zip.files).filter(
-    (entry) => !entry.dir && !entry.name.startsWith("__MACOSX/"),
+    (entry) => !entry.dir && !isMetadataPath(entry.name),
   );
   const wrapperPrefix = detectWrapperFolder(realEntries.map((e) => e.name));
 
@@ -40,13 +45,4 @@ export async function importResourceZip(zipFile: File | Blob): Promise<ImportedR
     resources,
     fileCount: resources.size,
   };
-}
-
-function blobToDataURL(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
 }

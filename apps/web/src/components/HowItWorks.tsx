@@ -66,7 +66,7 @@ export function HowItWorks({
         <Row
           step={2}
           title="Resources"
-          description="Select the resources ZIP"
+          description="Select the resources folder or ZIP"
           trailing={
             hasZip ? (
               <CheckIcon className="size-4 text-success" />

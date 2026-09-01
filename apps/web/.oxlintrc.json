@@ -1,5 +1,5 @@
 {
-  "ignorePatterns": ["dist/**", "src/components/ui/**"],
+  "ignorePatterns": ["dist/**", "src/components/ui/**", "worker-configuration.d.ts"],
   "env": {
     "builtin": true,
     "browser": true

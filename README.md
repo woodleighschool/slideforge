@@ -6,7 +6,7 @@ Everything runs in the browser tab. There is no backend and no upload: the lesso
 
 ## 🚀 Usage
 
-Open the deployed app, paste the lesson HTML from Seqta, add the lesson's resource zip, and forge. The result downloads as a `.pptx` you can edit like any other PowerPoint.
+Open the deployed app, paste the lesson HTML from Seqta, add the exported resources folder or ZIP, and forge. The result downloads as a `.pptx` you can edit like any other PowerPoint.
 
 ## 🧑‍💻 Development
 
