@@ -35,6 +35,7 @@ function formatBytes(bytes: number): string {
 
 export function BuildPanel({ builder }: { builder: Builder }) {
   const zipInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
   return (
@@ -53,7 +54,11 @@ export function BuildPanel({ builder }: { builder: Builder }) {
         </div>
 
         <div>
-          <StepLabel n={2} title="Resources" sub="(Linked to the HTML code) Select the resources ZIP" />
+          <StepLabel
+            n={2}
+            title="Resources"
+            sub="(Linked to the HTML code) Select the resources folder or ZIP"
+          />
           <button
             type="button"
             onClick={() => zipInputRef.current?.click()}
@@ -86,16 +91,45 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               if (file) void builder.handleZipFile(file);
             }}
           />
-          {builder.zipStatusText && (
+
+          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
+            or
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <button
+            type="button"
+            onClick={() => folderInputRef.current?.click()}
+            className="mt-2 w-full rounded-lg border border-border px-4 py-2 text-center text-sm text-muted-foreground transition-colors hover:border-forge-orange hover:text-foreground"
+          >
+            📁 Choose the exported resources folder —{" "}
+            <strong className="text-foreground">no zipping needed</strong>
+          </button>
+          <input
+            ref={folderInputRef}
+            type="file"
+            webkitdirectory=""
+            directory=""
+            multiple
+            hidden
+            onChange={(e) => {
+              const files = e.target.files;
+              if (files && files.length > 0) void builder.handleFolderFiles(files);
+              // Allow re-selecting the same folder after a change on disk.
+              e.target.value = "";
+            }}
+          />
+
+          {builder.resourceStatusText && (
             <p
               className={cn(
                 "mt-2 text-xs",
-                builder.zipStatusKind === "success" && "text-emerald-600",
-                builder.zipStatusKind === "warning" && "text-amber-600",
-                builder.zipStatusKind === "error" && "text-destructive",
+                builder.resourceStatusKind === "success" && "text-emerald-600",
+                builder.resourceStatusKind === "warning" && "text-amber-600",
+                builder.resourceStatusKind === "error" && "text-destructive",
               )}
             >
-              {builder.zipStatusText}
+              {builder.resourceStatusText}
             </p>
           )}
 
@@ -126,7 +160,11 @@ export function BuildPanel({ builder }: { builder: Builder }) {
         </div>
 
         <div>
-          <StepLabel n={3} title="Paste Lesson HTML" sub="Paste the lesson HTML you copied from your LMS" />
+          <StepLabel
+            n={3}
+            title="Paste Lesson HTML"
+            sub="Paste the lesson HTML you copied from your LMS"
+          />
           <Textarea
             placeholder="Paste the raw lesson HTML here…"
             className="min-h-32 font-mono text-xs"
@@ -159,8 +197,7 @@ export function BuildPanel({ builder }: { builder: Builder }) {
                 builder.outputFormat === "pptx" && "border-forge-orange bg-forge-orange/5",
               )}
             >
-              <RadioGroupItem value="pptx" />
-              📊 PowerPoint (.pptx)
+              <RadioGroupItem value="pptx" />📊 PowerPoint (.pptx)
             </Label>
             <Label
               title="Coming soon in the web version"
@@ -176,7 +213,11 @@ export function BuildPanel({ builder }: { builder: Builder }) {
         </div>
 
         <div>
-          <StepLabel n={5} title="Forge Presentation" sub="Click and let SlideFORGE build your presentation" />
+          <StepLabel
+            n={5}
+            title="Forge Presentation"
+            sub="Click and let SlideFORGE build your presentation"
+          />
           <Button
             className="w-full bg-forge-orange text-white hover:bg-forge-orange/90"
             disabled={builder.forging}
@@ -198,8 +239,8 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               <div>
                 <strong>Your presentation is ready!</strong>
                 <br />
-                It&apos;s been downloaded to your browser&apos;s Downloads folder — open it and
-                give it a look before sharing.
+                It&apos;s been downloaded to your browser&apos;s Downloads folder — open it and give
+                it a look before sharing.
               </div>
             </div>
           )}

@@ -12,6 +12,7 @@
 
 import JSZip from "jszip";
 
+import { detectWrapperFolder, stripWrapper } from "./pathUtils.js";
 import type { ImportedResources, ResourceEntry } from "./types.js";
 
 export async function importResourceZip(zipFile: File | Blob): Promise<ImportedResources> {
@@ -58,21 +59,4 @@ function blobToDataURL(blob: Blob): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
-}
-
-/** If every real entry shares one common first path component, treat it as a
- * wrapper folder and strip it so files land directly at the top level. */
-function detectWrapperFolder(paths: string[]): string | null {
-  if (paths.length === 0) return null;
-  const firstTop = paths[0]?.split("/")[0];
-  if (!firstTop) return null;
-  const allShareTop = paths.every((p) => p.split("/")[0] === firstTop);
-  return allShareTop ? firstTop : null;
-}
-
-function stripWrapper(path: string, wrapperPrefix: string | null): string {
-  if (!wrapperPrefix) return path;
-  const prefix = wrapperPrefix + "/";
-  if (!path.startsWith(prefix)) return path;
-  return path.slice(prefix.length);
 }

@@ -1,5 +1,6 @@
 export { isPureTagContent, splitIntoRuns } from "./bracketTagParser.js";
 export { buildGenerationInput } from "./buildPipeline.js";
+export { importResourceFolder } from "./folderImport.js";
 export { generatePptx } from "./generatePptx.js";
 export { blockMeta, runText } from "./lessonBlock.js";
 export { parseLessonHTML } from "./lessonHTMLParser.js";

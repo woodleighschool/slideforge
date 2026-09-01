@@ -1,17 +1,23 @@
-import { buildGenerationInput, generatePptx, importResourceZip, parseLessonHTML } from "@slideforge/core";
+import {
+  buildGenerationInput,
+  generatePptx,
+  importResourceFolder,
+  importResourceZip,
+  parseLessonHTML,
+} from "@slideforge/core";
 import type { LessonBlock, ResourceMap } from "@slideforge/core";
 import { useEffect, useState } from "react";
 
 import { loadLastResourceZip, saveLastResourceZip, type LastResourceZip } from "@/lib/idbStore";
 
-type ZipStatusKind = "success" | "warning" | "error" | null;
+type ResourceStatusKind = "success" | "warning" | "error" | null;
 
 export function useBuilder() {
   const [presentationName, setPresentationName] = useState("");
 
   const [resources, setResources] = useState<ResourceMap | null>(null);
-  const [zipStatusText, setZipStatusText] = useState("");
-  const [zipStatusKind, setZipStatusKind] = useState<ZipStatusKind>(null);
+  const [resourceStatusText, setResourceStatusText] = useState("");
+  const [resourceStatusKind, setResourceStatusKind] = useState<ResourceStatusKind>(null);
   const [lastZipInfo, setLastZipInfo] = useState<LastResourceZip | null>(null);
 
   const [lessonHTML, setLessonHTML] = useState("");
@@ -36,22 +42,51 @@ export function useBuilder() {
 
   async function handleZipFile(file: File) {
     setLastZipInfo(null);
-    setZipStatusKind(null);
-    setZipStatusText("Reading zip…");
+    setResourceStatusKind(null);
+    setResourceStatusText("Reading zip…");
 
     try {
       const result = await importResourceZip(file);
       setResources(result.resources);
-      setZipStatusText(
+      setResourceStatusText(
         result.isComplete
           ? `Loaded ${result.extractedFileCount} resource${result.extractedFileCount === 1 ? "" : "s"} from ${file.name}`
           : `Loaded ${result.extractedFileCount}/${result.expectedFileCount} resources — the zip may be incomplete`,
       );
-      setZipStatusKind(result.isComplete ? "success" : "warning");
+      setResourceStatusKind(result.isComplete ? "success" : "warning");
       await saveLastResourceZip(file);
     } catch (err) {
-      setZipStatusText(`Couldn't read this zip: ${err instanceof Error ? err.message : String(err)}`);
-      setZipStatusKind("error");
+      setResourceStatusText(
+        `Couldn't read this zip: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      setResourceStatusKind("error");
+      setResources(null);
+    }
+  }
+
+  /** The exported Seqta resources folder, selected directly — no zip step. */
+  async function handleFolderFiles(fileList: FileList) {
+    setLastZipInfo(null);
+    setResourceStatusKind(null);
+    setResourceStatusText("Reading folder…");
+
+    const files = Array.from(fileList);
+    const folderName = files[0]?.webkitRelativePath.split("/")[0] ?? "the selected folder";
+
+    try {
+      const result = await importResourceFolder(files);
+      setResources(result.resources);
+      setResourceStatusText(
+        result.isComplete
+          ? `Loaded ${result.extractedFileCount} resource${result.extractedFileCount === 1 ? "" : "s"} from ${folderName}`
+          : `Loaded ${result.extractedFileCount}/${result.expectedFileCount} resources — the folder may be incomplete`,
+      );
+      setResourceStatusKind(result.isComplete ? "success" : "warning");
+    } catch (err) {
+      setResourceStatusText(
+        `Couldn't read this folder: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      setResourceStatusKind("error");
       setResources(null);
     }
   }
@@ -114,8 +149,8 @@ export function useBuilder() {
     presentationName,
     setPresentationName,
     resources,
-    zipStatusText,
-    zipStatusKind,
+    resourceStatusText,
+    resourceStatusKind,
     lastZipInfo,
     lessonHTML,
     setLessonHTML,
@@ -131,6 +166,7 @@ export function useBuilder() {
     tipJarVisible,
     dismissTipJar: () => setTipJarVisible(false),
     handleZipFile,
+    handleFolderFiles,
     useLastZip,
     dismissLastZipSuggestion,
     openPreview,
