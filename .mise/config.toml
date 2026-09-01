@@ -24,12 +24,11 @@ run = "pnpm install --frozen-lockfile"
 
 [tasks.dev]
 description = "Run the web development server"
-depends = ["deps"]
 run = { task = "//apps/web:dev" }
 
 [tasks.build]
 description = "Build the core package and the web app"
-depends = ["deps", "//packages/core:build", "//apps/web:build"]
+depends = ["//packages/core:build", "//apps/web:build"]
 
 [tasks.deploy]
 description = "Deploy the web app to Cloudflare Workers"
@@ -38,19 +37,19 @@ run = { task = "//apps/web:deploy" }
 
 [tasks.test]
 description = "Run every package's tests"
-depends = ["deps", "//packages/core:test"]
+depends = ["//packages/core:test"]
 
 [tasks.typecheck]
 description = "Type-check every package"
-depends = ["deps", "//packages/core:typecheck", "//apps/web:typecheck"]
+depends = ["//packages/core:typecheck", "//apps/web:typecheck"]
 
 [tasks.lint]
 description = "Lint every package"
-depends = ["deps", "//packages/core:lint", "//apps/web:lint"]
+depends = ["//packages/core:lint", "//apps/web:lint"]
 
 [tasks.lint-fix]
 description = "Lint every package and apply fixes"
-depends = ["deps", "//packages/core:lint-fix", "//apps/web:lint-fix"]
+depends = ["//packages/core:lint-fix", "//apps/web:lint-fix"]
 
 [tasks.format]
 description = "Format the whole repository"
