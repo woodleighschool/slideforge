@@ -3,9 +3,10 @@ monorepo_root = true
 [tools]
 node = "26.8.1"
 pnpm = "11.24.0"
-lefthook = "2.1.11"
+lefthook = "2.1.12"
+actionlint = "1.7.12"
+zizmor = "1.29.0"
 oxfmt = "0.65.0"
-oxlint = "1.80.0"
 "npm:@commitlint/cli" = "21.2.2"
 
 [settings]
@@ -22,12 +23,11 @@ run = "pnpm install --frozen-lockfile"
 
 [tasks.dev]
 description = "Run the web development server"
-depends = ["deps"]
 run = { task = "//apps/web:dev" }
 
 [tasks.build]
 description = "Build the core package and the web app"
-depends = ["deps", "//packages/core:build", "//apps/web:build"]
+depends = ["//packages/core:build", "//apps/web:build"]
 
 [tasks.deploy]
 description = "Deploy the web app to Cloudflare Workers"
@@ -36,19 +36,19 @@ run = { task = "//apps/web:deploy" }
 
 [tasks.test]
 description = "Run every package's tests"
-depends = ["deps", "//packages/core:test"]
+depends = ["//packages/core:test"]
 
 [tasks.typecheck]
 description = "Type-check every package"
-depends = ["deps", "//packages/core:typecheck", "//apps/web:typecheck"]
+depends = ["//packages/core:typecheck", "//apps/web:typecheck"]
 
 [tasks.lint]
 description = "Lint every package"
-depends = ["deps", "//packages/core:lint", "//apps/web:lint"]
+depends = ["//packages/core:lint", "//apps/web:lint"]
 
 [tasks.lint-fix]
 description = "Lint every package and apply fixes"
-depends = ["deps", "//packages/core:lint-fix", "//apps/web:lint-fix"]
+depends = ["//packages/core:lint-fix", "//apps/web:lint-fix"]
 
 [tasks.format]
 description = "Format the whole repository"
@@ -57,6 +57,10 @@ run = "oxfmt ."
 [tasks.fmt-check]
 description = "Check formatting across the whole repository"
 run = "oxfmt --check ."
+
+[tasks.workflow-lint]
+description = "Lint GitHub Actions workflows"
+run = ["actionlint", "zizmor --offline --no-ignores .github/workflows"]
 
 [tasks.clean]
 description = "Remove build output from every package"

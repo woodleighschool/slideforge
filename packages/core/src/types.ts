@@ -3,7 +3,13 @@
 // Web APIs available in any browser tab.
 
 export type BracketTag =
-  | { type: "image"; filename: string; position: string | null; size: string | null; extras: string[] }
+  | {
+      type: "image";
+      filename: string;
+      position: string | null;
+      size: string | null;
+      extras: string[];
+    }
   | { type: "resource"; filename: string }
   | { type: "embed"; url: string; mode: string };
 
@@ -16,7 +22,13 @@ export type LessonBlock =
   | { type: "paragraphText"; runs: TextRun[] }
   | { type: "bulletList"; items: string[] }
   | { type: "table"; rows: string[][] }
-  | { type: "image"; filename: string; position: string | null; size: string | null; extras: string[] }
+  | {
+      type: "image";
+      filename: string;
+      position: string | null;
+      size: string | null;
+      extras: string[];
+    }
   | { type: "resourceCard"; filename: string }
   | { type: "videoEmbed"; url: string; mode: string };
 
@@ -41,9 +53,7 @@ export type ResourceMap = Map<string, ResourceEntry>;
 
 export interface ImportedResources {
   resources: ResourceMap;
-  extractedFileCount: number;
-  expectedFileCount: number;
-  isComplete: boolean;
+  fileCount: number;
 }
 
 export type GenImage = {
@@ -67,9 +77,7 @@ export type GenSlide =
 export interface GenerationInput {
   outputName: string;
   slides: GenSlide[];
-  parsedBlockCount: number;
   unmatchedImages: string[];
-  blocks: LessonBlock[];
 }
 
 export interface Theme {
@@ -80,7 +88,6 @@ export interface Theme {
 }
 
 export interface BlockMeta {
-  icon: string;
   label: string;
   summary: string;
 }

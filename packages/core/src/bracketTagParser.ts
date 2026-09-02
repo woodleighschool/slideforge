@@ -29,7 +29,11 @@ export function splitIntoRuns(raw: string): ContentRun[] {
     const kind = match[1] ?? "";
     const body = match[2] ?? "";
     const tag = parseTag(kind, body);
-    if (tag) runs.push({ kind: "tag", tag });
+    if (tag) {
+      runs.push({ kind: "tag", tag });
+    } else {
+      runs.push({ kind: "text", text: match[0] });
+    }
 
     lastEnd = matchEnd;
   }

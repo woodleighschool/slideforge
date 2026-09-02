@@ -1,7 +1,21 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
+  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "slideforge",
-  "compatibility_date": "2026-08-28",
+  "compatibility_date": "2026-09-01",
+  "placement": {
+    "region": "gcp:australia-southeast2",
+  },
+  "workers_dev": true,
+  "preview_urls": true,
+  "routes": [
+    {
+      "pattern": "slideforge.woodleigh.vic.edu.au",
+      "custom_domain": true,
+    },
+  ],
+  "cache": {
+    "enabled": true,
+  },
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",

@@ -1,8 +1,7 @@
 export { isPureTagContent, splitIntoRuns } from "./bracketTagParser.js";
 export { buildGenerationInput } from "./buildPipeline.js";
 export { importResourceFolder } from "./folderImport.js";
-export { generatePptx } from "./generatePptx.js";
-export { blockMeta, runText } from "./lessonBlock.js";
+export { blockMeta } from "./lessonBlock.js";
 export { parseLessonHTML } from "./lessonHTMLParser.js";
 export { matchResource } from "./resourceMatcher.js";
 export { assembleSlides, emptyContentSlide } from "./slideAssembler.js";

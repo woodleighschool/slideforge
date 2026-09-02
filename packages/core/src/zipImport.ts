@@ -6,27 +6,25 @@
 //   one (e.g. exports that wrap everything in "Resources/" or a
 //   randomly-named top folder)
 //
-// A completeness check (extracted count vs. archive entry count) is kept too
-// — a mismatched count is a useful signal that something in the zip couldn't
-// be read.
-
 import JSZip from "jszip";
 
-import { detectWrapperFolder, stripWrapper } from "./pathUtils.js";
+import {
+  blobToDataURL,
+  detectWrapperFolder,
+  isMetadataPath,
+  stripWrapper,
+} from "./resourceImportUtils.js";
 import type { ImportedResources, ResourceEntry } from "./types.js";
 
 export async function importResourceZip(zipFile: File | Blob): Promise<ImportedResources> {
   const zip = await JSZip.loadAsync(zipFile);
 
   const realEntries = Object.values(zip.files).filter(
-    (entry) => !entry.dir && !entry.name.startsWith("__MACOSX/"),
+    (entry) => !entry.dir && !isMetadataPath(entry.name),
   );
-  const expectedFileCount = realEntries.length;
-
   const wrapperPrefix = detectWrapperFolder(realEntries.map((e) => e.name));
 
   const resources = new Map<string, ResourceEntry>();
-  let extractedCount = 0;
 
   for (const entry of realEntries) {
     const relativePath = stripWrapper(entry.name, wrapperPrefix);
@@ -41,22 +39,10 @@ export async function importResourceZip(zipFile: File | Blob): Promise<ImportedR
       dataUrl,
       bytes: blob.size,
     });
-    extractedCount += 1;
   }
 
   return {
     resources,
-    extractedFileCount: extractedCount,
-    expectedFileCount,
-    isComplete: extractedCount === expectedFileCount,
+    fileCount: resources.size,
   };
-}
-
-function blobToDataURL(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
 }

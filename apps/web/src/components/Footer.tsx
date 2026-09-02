@@ -2,9 +2,8 @@ const YEAR = new Date().getFullYear();
 
 export function Footer() {
   return (
-    <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
-      © {YEAR} M Scott · SlideFORGE runs entirely in your browser — nothing you paste or upload
-      ever leaves this tab.
+    <footer className="mt-auto border-t py-6 text-center text-xs text-muted-foreground">
+      © {YEAR} Woodleigh School · Lesson content stays in your browser and is never uploaded.
     </footer>
   );
 }

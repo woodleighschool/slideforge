@@ -1,39 +1,36 @@
-[tasks.deps]
-description = "Install web dependencies"
-run = "pnpm install --frozen-lockfile"
-
 [tasks.dev]
 description = "Run the web development server"
-depends = [":deps"]
+depends = ["//:deps"]
 run = "pnpm run dev"
 
 [tasks.build]
 description = "Build the web app"
-depends = [":deps"]
+depends = ["//:deps"]
 run = "pnpm run build"
 
 [tasks.serve]
 description = "Serve the built web app"
+depends = ["//:deps"]
 run = "pnpm run preview"
 
 [tasks.deploy]
 description = "Deploy the web app to Cloudflare Workers"
-depends = [":deps"]
+depends = ["//:deps"]
 run = "pnpm run deploy"
 
 [tasks.lint]
 description = "Run web lint and typecheck"
-depends = [":deps"]
+depends = ["//:deps"]
 run = "pnpm run lint"
 
 [tasks.lint-fix]
 description = "Run web lint fixes and typecheck"
-depends = [":deps"]
+depends = ["//:deps"]
 run = "pnpm run lint:fix"
 
 [tasks.typecheck]
 description = "Run web typecheck"
-depends = [":deps"]
+depends = ["//:deps"]
 run = "pnpm run typecheck"
 
 [tasks.format]
@@ -46,8 +43,13 @@ run = "oxfmt --check ."
 
 [tasks.types]
 description = "Regenerate Cloudflare Worker types"
-depends = [":deps"]
+depends = ["//:deps"]
 run = "pnpm run types"
+
+[tasks.types-check]
+description = "Check generated Cloudflare Worker types"
+depends = ["//:deps"]
+run = "pnpm run types:check"
 
 [tasks.clean]
 description = "Remove web build output"

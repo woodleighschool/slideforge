@@ -1,16 +1,24 @@
 import { useState } from "react";
 
-/** A one-time UI flag persisted in localStorage (terms accepted, a banner
- * dismissed). `visible` starts false until the effect below has had a chance
- * to check localStorage, so nothing flashes on first paint. */
+function wasDismissed(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === "true";
+  } catch {
+    return false;
+  }
+}
+
 export function useDismissableFlag(key: string, shouldShowInitially: () => boolean) {
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem(key) === "true");
+  const [dismissed, setDismissed] = useState(() => wasDismissed(key));
 
   function dismiss() {
-    localStorage.setItem(key, "true");
+    try {
+      localStorage.setItem(key, "true");
+    } catch {
+      // Dismiss for this tab even when persistent browser storage is unavailable.
+    }
     setDismissed(true);
   }
 
-  const visible = !dismissed && shouldShowInitially();
-  return { visible, dismiss };
+  return { visible: !dismissed && shouldShowInitially(), dismiss };
 }
