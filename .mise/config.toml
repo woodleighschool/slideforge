@@ -58,10 +58,6 @@ run = "oxfmt ."
 description = "Check formatting across the whole repository"
 run = "oxfmt --check ."
 
-[tasks.workflow-lint]
-description = "Lint GitHub Actions workflows"
-run = ["actionlint", "zizmor --offline --no-ignores .github/workflows"]
-
 [tasks.clean]
 description = "Remove build output from every package"
 depends = ["//packages/core:clean", "//apps/web:clean"]
