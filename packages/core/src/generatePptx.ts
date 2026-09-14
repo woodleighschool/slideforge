@@ -164,7 +164,8 @@ async function buildFlowBlocks(items: GenItem[]): Promise<FlowBlock[]> {
  * is stranded on the one before it. */
 function isCaptionPair(a: FlowBlock, b: FlowBlock): boolean {
   return (
-    (a.kind === "paragraph" && b.kind === "imageRow") || (a.kind === "imageRow" && b.kind === "paragraph")
+    (a.kind === "paragraph" && b.kind === "imageRow") ||
+    (a.kind === "imageRow" && b.kind === "paragraph")
   );
 }
 

@@ -17,7 +17,10 @@ function image(filename = "diagram.png"): GenItem {
 /** A non-paragraph filler block, so it can take up space without itself
  * being eligible to bond with an adjacent image (see isCaptionPair). */
 function bulletFiller(itemCount: number): GenItem {
-  return { kind: "bulletList", bulletList: Array.from({ length: itemCount }, (_, i) => `Item ${i}`) };
+  return {
+    kind: "bulletList",
+    bulletList: Array.from({ length: itemCount }, (_, i) => `Item ${i}`),
+  };
 }
 
 describe("planContentPages", () => {
