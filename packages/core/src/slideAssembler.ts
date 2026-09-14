@@ -4,6 +4,11 @@
 //   (not grouped by kind) — this is what lets generatePptx.ts render an
 //   image at its true position in the reading order instead of always
 //   pulled out to a fixed corner.
+// - Two (or more) headings in a row, with nothing else between them, are
+//   really one title that Seqta/Word split across multiple heading elements
+//   (a wrapped two-line title, or a "question" heading immediately followed
+//   by an "answer" heading) — these merge into a single multi-line title
+//   instead of each opening its own near-empty slide.
 // - A video always breaks out into its own dedicated slide, then content
 //   after it continues on a fresh slide under the same title.
 
@@ -18,6 +23,11 @@ export function assembleSlides(blocks: LessonBlock[]): AssembledSlide[] {
   let currentTitle = "";
   let current = emptyContentSlide("");
   let hasTitledContent = false;
+  // True once the current slide has picked up anything beyond its title —
+  // a fresh `slideTitle` while this is still false means the previous
+  // heading had nothing under it, so the new heading is a continuation of
+  // the same title rather than the start of a new slide.
+  let currentHasBody = false;
 
   function flushCurrentIfNeeded() {
     if (hasTitledContent) result.push(current);
@@ -26,25 +36,34 @@ export function assembleSlides(blocks: LessonBlock[]): AssembledSlide[] {
   for (const block of blocks) {
     switch (block.type) {
       case "slideTitle":
-        flushCurrentIfNeeded();
-        currentTitle = block.title;
-        current = emptyContentSlide(block.title);
-        hasTitledContent = true; // a heading alone still deserves its own slide
+        if (hasTitledContent && !currentHasBody) {
+          currentTitle = `${currentTitle}\n${block.title}`;
+          current.title = currentTitle;
+        } else {
+          flushCurrentIfNeeded();
+          currentTitle = block.title;
+          current = emptyContentSlide(block.title);
+          hasTitledContent = true; // a heading alone still deserves its own slide
+          currentHasBody = false;
+        }
         break;
 
       case "paragraphText":
         current.items.push({ kind: "paragraph", runs: block.runs });
         hasTitledContent = true;
+        currentHasBody = true;
         break;
 
       case "bulletList":
         current.items.push({ kind: "bulletList", items: block.items });
         hasTitledContent = true;
+        currentHasBody = true;
         break;
 
       case "table":
         current.items.push({ kind: "table", rows: block.rows });
         hasTitledContent = true;
+        currentHasBody = true;
         break;
 
       case "image":
@@ -55,11 +74,13 @@ export function assembleSlides(blocks: LessonBlock[]): AssembledSlide[] {
           size: block.size,
         });
         hasTitledContent = true;
+        currentHasBody = true;
         break;
 
       case "resourceCard":
         current.items.push({ kind: "resourceCard", filename: block.filename });
         hasTitledContent = true;
+        currentHasBody = true;
         break;
 
       case "videoEmbed":
@@ -73,6 +94,7 @@ export function assembleSlides(blocks: LessonBlock[]): AssembledSlide[] {
         // fresh combined slide rather than reopening the old one.
         current = emptyContentSlide(currentTitle);
         hasTitledContent = false;
+        currentHasBody = false;
         break;
 
       default:
