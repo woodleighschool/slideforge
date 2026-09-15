@@ -31,6 +31,7 @@
 
 - Use focused Conventional Commits.
 - Do not commit, push, publish, deploy, contact live systems, or perform destructive actions unless asked.
+- Do not commit directly to `main`. Work on a feature branch and open a pull request against `main`, requesting review before merging.
 
 ## Repository notes
 
