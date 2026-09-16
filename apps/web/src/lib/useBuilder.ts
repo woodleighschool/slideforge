@@ -130,6 +130,11 @@ export function useBuilder() {
           kind: "forging",
           message: `${input.unmatchedImages.length} image${input.unmatchedImages.length === 1 ? "" : "s"} could not be matched and will use a placeholder.`,
         });
+      } else if (input.unmatchedResources.length > 0) {
+        setForgeState({
+          kind: "forging",
+          message: `${input.unmatchedResources.length} resource${input.unmatchedResources.length === 1 ? "" : "s"} could not be matched and will need to be attached manually.`,
+        });
       }
 
       const { generatePptx } = await import("@slideforge/core/generate");

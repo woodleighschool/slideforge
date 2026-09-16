@@ -63,11 +63,16 @@ export type GenImage = {
   size: string | null;
 };
 
+export type GenResource = {
+  dataUrl: string | null;
+  filename: string;
+};
+
 export type GenItem =
   | { kind: "paragraph"; paragraph: TextRun[] }
   | { kind: "bulletList"; bulletList: string[] }
   | { kind: "table"; table: string[][] }
-  | { kind: "resource"; resource: string }
+  | { kind: "resource"; resource: GenResource }
   | { kind: "image"; image: GenImage };
 
 export type GenSlide =
@@ -78,6 +83,7 @@ export interface GenerationInput {
   outputName: string;
   slides: GenSlide[];
   unmatchedImages: string[];
+  unmatchedResources: string[];
 }
 
 export interface Theme {

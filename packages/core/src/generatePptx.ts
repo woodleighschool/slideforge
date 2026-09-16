@@ -8,7 +8,10 @@
 
 import PptxGenJS from "pptxgenjs";
 
-import type { GenerationInput, GenItem, GenSlide, TextRun, Theme } from "./types.js";
+import { embedOleObjects, resolveEmbeddableKind } from "./oleEmbed.js";
+import type { PendingOleEmbed } from "./oleEmbed.js";
+import { RESOURCE_ICON_PNG_BASE64 } from "./resourceIcon.js";
+import type { GenerationInput, GenItem, GenResource, GenSlide, TextRun, Theme } from "./types.js";
 
 // pptxgenjs's shipped types don't model every option shape used below
 // (fill/line objects, the hyperlink run option, percentage-string
@@ -82,6 +85,12 @@ const LINE_HEIGHT_IN = 0.24;
 const CONTENT_TOP = 1.5;
 const CONTENT_BOTTOM = SLIDE_H - 0.5;
 
+// --- Embedded-resource card layout ---
+const RESOURCE_ICON_W = 0.7;
+const RESOURCE_ICON_H = 0.875; // matches the icon asset's 240:300 aspect ratio
+const RESOURCE_ROW_HEIGHT = 1.1;
+const RESOURCE_CARD_HEIGHT = 0.8; // the plain text-card fallback, unchanged from before
+
 function estimateParagraphHeight(text: string, textW: number): number {
   const charsPerLine = Math.max(10, Math.floor(textW / CHAR_WIDTH_IN));
   const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
@@ -102,7 +111,7 @@ type FlowBlock =
   | { kind: "paragraph"; data: TextRun[]; height: number }
   | { kind: "bulletList"; data: string[]; height: number }
   | { kind: "table"; data: string[][]; height: number }
-  | { kind: "resource"; data: string; height: number }
+  | { kind: "resource"; data: GenResource; height: number }
   | { kind: "imageRow"; data: ImageItem[]; boxes: ImageBox[]; height: number };
 
 type GroupedItem = GenItem | { kind: "imageRow"; images: ImageItem[] };
@@ -146,7 +155,9 @@ async function buildFlowBlocks(items: GenItem[]): Promise<FlowBlock[]> {
     } else if (item.kind === "table") {
       flowBlocks.push({ kind: "table", data: item.table, height: estimateTableHeight(item.table) });
     } else if (item.kind === "resource") {
-      flowBlocks.push({ kind: "resource", data: item.resource, height: 1.0 });
+      const embeddable = item.resource.dataUrl && resolveEmbeddableKind(item.resource.filename);
+      const height = embeddable ? RESOURCE_ROW_HEIGHT : RESOURCE_CARD_HEIGHT;
+      flowBlocks.push({ kind: "resource", data: item.resource, height });
     } else if ("images" in item) {
       const boxes = await Promise.all(item.images.map((i) => estimateImageBox(i.image)));
       const height = Math.max(...boxes.map((b) => b.h)) + 0.15;
@@ -156,23 +167,22 @@ async function buildFlowBlocks(items: GenItem[]): Promise<FlowBlock[]> {
   return flowBlocks;
 }
 
-/** A paragraph sitting directly next to an image is almost always its
- * caption (or the descriptive text the image was inline with) — Seqta's
- * `[[image:...]]` tag routinely splits one authored paragraph into
- * "text before" / image / "text after" blocks. Pairing them here is what
- * stops an image from being pushed onto a "(cont.)" slide while its caption
- * is stranded on the one before it. */
+/** A paragraph sitting directly next to an image or a resource card is
+ * almost always its caption (or the descriptive text it was inline with) —
+ * Seqta's `[[image:...]]`/`[[resource:...]]` tags routinely split one
+ * authored paragraph into "text before" / tag / "text after" blocks.
+ * Pairing them here is what stops that text from being separated from what
+ * it's describing. */
 function isCaptionPair(a: FlowBlock, b: FlowBlock): boolean {
-  return (
-    (a.kind === "paragraph" && b.kind === "imageRow") ||
-    (a.kind === "imageRow" && b.kind === "paragraph")
-  );
+  const isMedia = (block: FlowBlock) => block.kind === "imageRow" || block.kind === "resource";
+  return (a.kind === "paragraph" && isMedia(b)) || (isMedia(a) && b.kind === "paragraph");
 }
 
 /** Groups adjacent flow blocks that must never be split across a slide
  * break. Each group is at most a single bonded pair (a caption paragraph
- * plus its image) — a third adjacent block always starts its own group, so
- * bonding can't chain into one unbreakable run of the whole slide. */
+ * plus its image or resource card) — a third adjacent block always starts
+ * its own group, so bonding can't chain into one unbreakable run of the
+ * whole slide. */
 function groupFlowBlocks(blocks: FlowBlock[]): FlowBlock[][] {
   const groups: FlowBlock[][] = [];
   for (const block of blocks) {
@@ -191,12 +201,23 @@ function groupHeight(group: FlowBlock[]): number {
   return group.reduce((sum, block) => sum + block.height, 0);
 }
 
+/** True for a group that carries a resource card (with or without its bonded
+ * caption) — these always get a dedicated page of their own, the same way a
+ * video already gets pulled onto its own slide, rather than sharing space
+ * with unrelated content. */
+function groupIsResource(group: FlowBlock[]): boolean {
+  return group.some((block) => block.kind === "resource");
+}
+
 /** Plans how a content slide's items paginate across one or more actual
  * slides, honoring the same overflow threshold as before, but breaking
  * between bonded groups (see `groupFlowBlocks`) rather than between any two
- * blocks — so a caption and its image always land on the same page. Always
- * returns at least one (possibly empty) page, matching the previous
- * behaviour of a content slide with no items still getting a title slide. */
+ * blocks — so a caption and its image or resource card always land on the
+ * same page. A resource card's group always gets a page to itself (see
+ * `groupIsResource`), regardless of how much room was left on the page
+ * before it. Always returns at least one (possibly empty) page, matching
+ * the previous behaviour of a content slide with no items still getting a
+ * title slide. */
 export async function planContentPages(items: GenItem[]): Promise<FlowBlock[][]> {
   const flowBlocks = await buildFlowBlocks(items);
   const groups = groupFlowBlocks(flowBlocks);
@@ -206,6 +227,14 @@ export async function planContentPages(items: GenItem[]): Promise<FlowBlock[][]>
   let currentHeight = CONTENT_TOP;
 
   for (const group of groups) {
+    if (groupIsResource(group)) {
+      if (current.length > 0) pages.push(current);
+      pages.push(group);
+      current = [];
+      currentHeight = CONTENT_TOP;
+      continue;
+    }
+
     const h = groupHeight(group);
     if (current.length > 0 && currentHeight + h > CONTENT_BOTTOM) {
       pages.push(current);
@@ -219,19 +248,16 @@ export async function planContentPages(items: GenItem[]): Promise<FlowBlock[][]>
   return pages;
 }
 
-async function addContentSlide(
-  pptx: PptxGenJS,
-  theme: Theme,
-  slide: Extract<GenSlide, { type: "content" }>,
-): Promise<void> {
-  const textW = TEXT_W;
-  const pages = await planContentPages(slide.items);
-
-  for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
-    const s: PptxSlide = pptx.addSlide();
-    s.background = { color: theme.background };
-
-    const title = pageIndex === 0 ? slide.title : `${slide.title} (cont.)`;
+/** Renders a content slide's title. A plain single-line title is one text
+ * box, unchanged from before. A title that slideAssembler merged from
+ * multiple consecutive headings (joined with "\n") renders as two: the
+ * first heading as the real, larger title, and the rest as a smaller
+ * subtitle line underneath — splitting one merged block into two separate
+ * shapes is, empirically, what lets PowerPoint's Designer suggest a layout
+ * for the slide; a single two-line title box doesn't trigger it. */
+export function addContentTitle(s: PptxSlide, theme: Theme, title: string): void {
+  const lines = title.split("\n");
+  if (lines.length <= 1) {
     s.addText(title, {
       x: 0.5,
       y: 0.4,
@@ -242,6 +268,49 @@ async function addContentSlide(
       color: theme.navy,
       fontFace: "Arial",
     });
+    return;
+  }
+
+  const [primary, ...rest] = lines;
+  s.addText(primary ?? title, {
+    x: 0.5,
+    y: 0.35,
+    w: SLIDE_W - 1,
+    h: 0.55,
+    fontSize: 28,
+    bold: true,
+    color: theme.navy,
+    fontFace: "Arial",
+  });
+  s.addText(rest.join(" "), {
+    x: 0.5,
+    y: 0.95,
+    w: SLIDE_W - 1,
+    h: 0.45,
+    fontSize: 18,
+    color: theme.navy,
+    fontFace: "Arial",
+  });
+}
+
+async function addContentSlide(
+  pptx: PptxGenJS,
+  theme: Theme,
+  slide: Extract<GenSlide, { type: "content" }>,
+  startSlideNumber: number,
+  pendingEmbeds: PendingOleEmbed[],
+): Promise<number> {
+  const textW = TEXT_W;
+  const pages = await planContentPages(slide.items);
+  let slideNumber = startSlideNumber;
+
+  for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+    slideNumber += 1;
+    const s: PptxSlide = pptx.addSlide();
+    s.background = { color: theme.background };
+
+    const title = pageIndex === 0 ? slide.title : `${slide.title} (cont.)`;
+    addContentTitle(s, theme, title);
 
     let textY = CONTENT_TOP;
 
@@ -328,19 +397,76 @@ async function addContentSlide(
         );
       } else if (block.kind === "resource") {
         flushParagraphBuffer();
-        currentSlide.addText(`Attached resource\n${block.data}`, {
-          x: 0.5,
-          y: textY,
-          w: 4,
-          h: 0.8,
-          fontSize: 12,
-          color: theme.navy,
-          fontFace: "Arial",
-          fill: { color: "FFFFFF" },
-          line: { color: theme.border, width: 1 },
-          align: "center",
-          valign: "middle",
-        } as never);
+        const resource = block.data;
+        const embeddableKind = resource.dataUrl ? resolveEmbeddableKind(resource.filename) : null;
+
+        if (resource.dataUrl && embeddableKind) {
+          // The visible icon + caption are rendered normally here; the
+          // actual OLE embedding (what makes double-clicking it open the
+          // real file) is patched into the .pptx afterwards in generatePptx().
+          currentSlide.addImage({
+            data: `data:image/png;base64,${RESOURCE_ICON_PNG_BASE64}`,
+            x: 0.5,
+            y: textY,
+            w: RESOURCE_ICON_W,
+            h: RESOURCE_ICON_H,
+          });
+          currentSlide.addText(
+            [
+              { text: resource.filename, options: { bold: true, breakLine: true } },
+              { text: "Double-click to open", options: { italic: true, color: "666666" } },
+            ] as never,
+            {
+              x: 1.35,
+              y: textY,
+              w: textW - 0.85,
+              h: RESOURCE_ICON_H,
+              fontSize: 12,
+              color: theme.navy,
+              fontFace: "Arial",
+              valign: "middle",
+            } as never,
+          );
+          pendingEmbeds.push({
+            slideNumber,
+            filename: resource.filename,
+            dataUrl: resource.dataUrl,
+            kind: embeddableKind,
+            x: 0.5,
+            y: textY,
+            w: RESOURCE_ICON_W,
+            h: RESOURCE_ICON_H,
+          });
+        } else if (resource.dataUrl) {
+          currentSlide.addText(`Attached resource\n${resource.filename}`, {
+            x: 0.5,
+            y: textY,
+            w: 4,
+            h: RESOURCE_CARD_HEIGHT,
+            fontSize: 12,
+            color: theme.navy,
+            fontFace: "Arial",
+            fill: { color: "FFFFFF" },
+            line: { color: theme.border, width: 1 },
+            align: "center",
+            valign: "middle",
+          } as never);
+        } else {
+          currentSlide.addText(`Missing resource: ${resource.filename} — attach manually`, {
+            x: 0.5,
+            y: textY,
+            w: 4,
+            h: RESOURCE_CARD_HEIGHT,
+            fontSize: 12,
+            color: "B00020",
+            italic: true,
+            fontFace: "Arial",
+            fill: { color: "FFFFFF" },
+            line: { color: "B00020", width: 1 },
+            align: "center",
+            valign: "middle",
+          } as never);
+        }
       } else if (block.kind === "imageRow") {
         flushParagraphBuffer();
         // A single image keeps its own left/right/centre position from the
@@ -382,6 +508,8 @@ async function addContentSlide(
 
     flushParagraphBuffer(); // render whatever paragraphs were still buffered at the end of this page
   }
+
+  return slideNumber;
 }
 
 function addVideoSlide(
@@ -428,6 +556,23 @@ function addVideoSlide(
   });
 }
 
+/** Triggers a normal browser download for pptx bytes we've already got in
+ * memory — the same mechanism pptx.writeFile() uses internally, needed here
+ * because writing the OLE-patched bytes bypasses that helper. */
+function downloadPptx(bytes: ArrayBuffer, fileName: string): void {
+  const blob = new Blob([bytes], {
+    type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 /** Resolves once the browser download has been triggered. */
 export async function generatePptx(
   data: GenerationInput,
@@ -439,14 +584,26 @@ export async function generatePptx(
   pptx.defineLayout({ name: "SLIDEFORGE_16x9", width: SLIDE_W, height: SLIDE_H });
   pptx.layout = "SLIDEFORGE_16x9";
 
+  const pendingEmbeds: PendingOleEmbed[] = [];
+  let slideNumber = 0;
+
   for (const slide of data.slides) {
     if (slide.type === "video") {
+      slideNumber += 1;
       addVideoSlide(pptx, resolvedTheme, slide);
     } else {
-      await addContentSlide(pptx, resolvedTheme, slide);
+      slideNumber = await addContentSlide(pptx, resolvedTheme, slide, slideNumber, pendingEmbeds);
     }
   }
 
   const fileName = `${data.outputName || "Presentation"}.pptx`;
-  await pptx.writeFile({ fileName });
+
+  if (pendingEmbeds.length === 0) {
+    await pptx.writeFile({ fileName });
+    return;
+  }
+
+  const rawBytes = (await pptx.write({ outputType: "arraybuffer" })) as ArrayBuffer;
+  const patchedBytes = await embedOleObjects(rawBytes, pendingEmbeds);
+  downloadPptx(patchedBytes, fileName);
 }
