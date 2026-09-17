@@ -67,6 +67,7 @@ describe("buildGenerationInput", () => {
 
     expect(result.outputName).toBe("Test Lesson");
     expect(result.unmatchedImages).toHaveLength(0);
+    expect(result.unmatchedResources).toEqual(["handout.pdf"]);
 
     const videoSlide = result.slides.find((s) => s.type === "video");
     expect(videoSlide).toBeDefined();
@@ -100,5 +101,58 @@ describe("buildGenerationInput", () => {
     });
 
     expect(result.unmatchedImages).toHaveLength(0);
+  });
+
+  it("matches a resource card against the resources zip and carries its data", () => {
+    const resources = resourceMap({
+      "handout.docx": {
+        relativePath: "handout.docx",
+        dataUrl:
+          "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,AAAA",
+      },
+    });
+
+    const result = buildGenerationInput({
+      presentationName: "Test",
+      lessonHTML: "[[resource:handout.docx]]",
+      resources,
+    });
+
+    expect(result.unmatchedResources).toHaveLength(0);
+    const slide = result.slides.find((s) => s.type === "content");
+    const resourceItem =
+      slide?.type === "content" ? slide.items.find((i) => i.kind === "resource") : undefined;
+    expect(resourceItem).toMatchObject({
+      kind: "resource",
+      resource: {
+        filename: "handout.docx",
+        dataUrl:
+          "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,AAAA",
+      },
+    });
+  });
+
+  it("reports a resource card as unmatched when no resource fits", () => {
+    const result = buildGenerationInput({
+      presentationName: "",
+      lessonHTML: "[[resource:missing.docx]]",
+      resources: resourceMap({}),
+    });
+
+    expect(result.unmatchedResources).toEqual(["missing.docx"]);
+  });
+
+  it("matches a resource card using Seqta's '<id>_filename' export naming", () => {
+    const resources = resourceMap({
+      "17_Handout.docx": { relativePath: "17_Handout.docx" },
+    });
+
+    const result = buildGenerationInput({
+      presentationName: "Test",
+      lessonHTML: "[[resource:Handout.docx]]",
+      resources,
+    });
+
+    expect(result.unmatchedResources).toHaveLength(0);
   });
 });

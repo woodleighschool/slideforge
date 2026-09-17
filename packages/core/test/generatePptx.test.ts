@@ -1,7 +1,9 @@
+import JSZip from "jszip";
+import PptxGenJS from "pptxgenjs";
 import { describe, expect, it } from "vitest";
 
-import { planContentPages } from "../src/generatePptx.js";
-import type { GenItem } from "../src/types.js";
+import { addContentTitle, planContentPages } from "../src/generatePptx.js";
+import type { GenItem, Theme } from "../src/types.js";
 
 function paragraph(length: number): GenItem {
   return { kind: "paragraph", paragraph: [{ kind: "plain", text: "A".repeat(length) }] };
@@ -12,6 +14,13 @@ function image(filename = "diagram.png"): GenItem {
     kind: "image",
     image: { dataUrl: null, filename, position: "left", size: "medium" },
   };
+}
+
+function resource(
+  filename = "handout.docx",
+  dataUrl: string | null = "data:application/octet-stream;base64,AAAA",
+): GenItem {
+  return { kind: "resource", resource: { filename, dataUrl } };
 }
 
 /** A non-paragraph filler block, so it can take up space without itself
@@ -80,5 +89,100 @@ describe("planContentPages", () => {
 
     expect(pages).toHaveLength(1);
     expect(pages[0]).toEqual([]);
+  });
+
+  it("gives a resource card its own page even when the current page has plenty of room", async () => {
+    // Bullet-list filler (not a paragraph) on both sides, so neither one
+    // bonds to the resource as its caption — this isolates "gets its own
+    // page" from the caption-bonding behaviour covered separately below.
+    const items: GenItem[] = [bulletFiller(3), resource(), bulletFiller(3)];
+
+    const pages = await planContentPages(items);
+
+    expect(pages).toHaveLength(3);
+    expect(pages[0]?.map((b) => b.kind)).toEqual(["bulletList"]);
+    expect(pages[1]?.map((b) => b.kind)).toEqual(["resource"]);
+    expect(pages[2]?.map((b) => b.kind)).toEqual(["bulletList"]);
+  });
+
+  it("keeps a resource card's caption with it on its dedicated page when the caption comes first", async () => {
+    const items: GenItem[] = [bulletFiller(11), paragraph(8), resource(), paragraph(20)];
+
+    const pages = await planContentPages(items);
+
+    expect(pages).toHaveLength(3);
+    expect(pages[0]?.map((b) => b.kind)).toEqual(["bulletList"]);
+    expect(pages[1]?.map((b) => b.kind)).toEqual(["paragraph", "resource"]);
+    expect(pages[2]?.map((b) => b.kind)).toEqual(["paragraph"]);
+  });
+
+  it("keeps a resource card's caption with it on its dedicated page when the caption comes after", async () => {
+    const items: GenItem[] = [bulletFiller(11), resource(), paragraph(8), paragraph(20)];
+
+    const pages = await planContentPages(items);
+
+    expect(pages).toHaveLength(3);
+    expect(pages[0]?.map((b) => b.kind)).toEqual(["bulletList"]);
+    expect(pages[1]?.map((b) => b.kind)).toEqual(["resource", "paragraph"]);
+    expect(pages[2]?.map((b) => b.kind)).toEqual(["paragraph"]);
+  });
+
+  it("gives each of two back-to-back resource cards its own page", async () => {
+    const items: GenItem[] = [resource("a.docx"), resource("b.docx")];
+
+    const pages = await planContentPages(items);
+
+    expect(pages).toHaveLength(2);
+    expect(pages[0]?.map((b) => b.kind)).toEqual(["resource"]);
+    expect(pages[1]?.map((b) => b.kind)).toEqual(["resource"]);
+  });
+});
+
+const TEST_THEME: Theme = {
+  navy: "1B2A4A",
+  gold: "C9A227",
+  background: "FFFFFF",
+  border: "D9D9D9",
+};
+
+/** Renders a title with addContentTitle onto a fresh slide and returns the
+ * resulting slide XML, so the test can check what shapes actually landed in
+ * the .pptx rather than relying on pptxgenjs's internal object shape. */
+async function renderTitleXml(title: string): Promise<string> {
+  const pptx = new PptxGenJS();
+  const slide = pptx.addSlide();
+  addContentTitle(slide, TEST_THEME, title);
+
+  const bytes = (await pptx.write({ outputType: "arraybuffer" })) as ArrayBuffer;
+  const zip = await JSZip.loadAsync(bytes);
+  const slideXml = await zip.file("ppt/slides/slide1.xml")?.async("string");
+  if (!slideXml) throw new Error("slide1.xml was not produced");
+  return slideXml;
+}
+
+describe("addContentTitle", () => {
+  it("renders a plain single-line title as one text shape", async () => {
+    const xml = await renderTitleXml("Understanding Scams");
+
+    expect((xml.match(/<p:sp>/g) ?? []).length).toBe(1);
+    expect(xml).toContain("Understanding Scams");
+  });
+
+  it("splits a merged multi-line title into a larger title and a smaller subtitle", async () => {
+    const xml = await renderTitleXml("Statement of Inquiry:\nA quote here.");
+
+    expect((xml.match(/<p:sp>/g) ?? []).length).toBe(2);
+    expect(xml).toContain("Statement of Inquiry:");
+    expect(xml).toContain("A quote here.");
+    expect(xml).toContain('sz="2800"'); // the real title keeps its original 28pt size
+    expect(xml).toContain('sz="1800"'); // the subtitle line is smaller
+  });
+
+  it("joins three or more merged heading lines into a single subtitle line", async () => {
+    const xml = await renderTitleXml("Line One\nLine Two\nLine Three");
+
+    expect((xml.match(/<p:sp>/g) ?? []).length).toBe(2);
+    expect(xml).toContain("Line One");
+    expect(xml).toContain("Line Two Line Three");
   });
 });

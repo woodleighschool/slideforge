@@ -21,6 +21,7 @@ export function buildGenerationInput({
   const assembled = assembleSlides(blocks);
 
   const unmatchedImages: string[] = [];
+  const unmatchedResources: string[] = [];
 
   const slides: GenSlide[] = assembled.map((slide) => {
     if (slide.type === "video") {
@@ -48,7 +49,12 @@ export function buildGenerationInput({
       } else if (item.kind === "table") {
         items.push({ kind: "table", table: item.rows });
       } else if (item.kind === "resourceCard") {
-        items.push({ kind: "resource", resource: item.filename });
+        const matched = matchResource(item.filename, resources);
+        if (!matched) unmatchedResources.push(item.filename);
+        items.push({
+          kind: "resource",
+          resource: { dataUrl: matched ? matched.dataUrl : null, filename: item.filename },
+        });
       }
     }
 
@@ -61,5 +67,6 @@ export function buildGenerationInput({
     outputName: safeName,
     slides,
     unmatchedImages,
+    unmatchedResources,
   };
 }
