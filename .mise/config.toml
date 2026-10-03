@@ -2,7 +2,7 @@ monorepo_root = true
 
 [tools]
 node = "26.10.0"
-pnpm = "12.8.2"
+pnpm = "12.9.0"
 lefthook = "2.1.15"
 actionlint = "1.7.12"
 zizmor = "1.30.1"
