@@ -5,6 +5,7 @@ configs = ["lefthook.common.toml"]
 
 [pre-commit.commands.format-app]
 glob = ["apps/**/*.{ts,tsx,js,jsx,css}", "packages/**/*.{ts,tsx,js,jsx,css}"]
+exclude = ["**/worker-configuration.d.ts"]
 run = "oxfmt --no-error-on-unmatched-pattern {staged_files}"
 stage_fixed = true
 

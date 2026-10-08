@@ -3,5 +3,5 @@
   "sortImports": {
     "internalPattern": ["@/"],
   },
-  "ignorePatterns": ["dist/**", "pnpm-lock.yaml"],
+  "ignorePatterns": ["worker-configuration.d.ts", "dist/**", "pnpm-lock.yaml"],
 }
