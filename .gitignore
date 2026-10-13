@@ -9,3 +9,4 @@ dist/
 !.env.example
 .vscode/*
 !.vscode/extensions.json
+/apps/web/worker-configuration.d.ts

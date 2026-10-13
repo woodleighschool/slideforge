@@ -4,17 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "pnpm run types && vite",
+    "build": "pnpm run types && tsc -b && vite build",
     "preview": "vite preview",
     "deploy": "wrangler deploy",
-    "lint": "oxlint . && tsc -b",
-    "lint:fix": "oxlint --fix . && tsc -b",
-    "typecheck": "tsc -b",
+    "lint": "oxlint . && pnpm run typecheck",
+    "lint:fix": "oxlint --fix . && pnpm run typecheck",
+    "typecheck": "pnpm run types && tsc -b",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "types": "wrangler types --include-runtime false",
-    "types:check": "wrangler types --check --include-runtime false"
+    "types": "wrangler types --include-runtime false"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

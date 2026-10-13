@@ -11,7 +11,7 @@
 ## Repository contract
 
 - Mise owns tools and commands. Run `mise run <task>` rather than invoking pnpm, oxfmt, or wrangler directly, so local runs match CI.
-- Keep generated artifacts with their source change (`worker-configuration.d.ts`, `mise.lock`, lockfiles).
+- Keep committed lockfiles with their source change. Package scripts generate ignored Worker types before development, builds and typechecks.
 - Run the narrowest useful checks while working, then the relevant format, lint, typecheck, test, and build tasks for the packages you touched.
 - Follow the existing package's style. Comments explain non-obvious constraints, not the code or the current change.
 - Do not add file banners, author or date headers, or comment-based change logs. Git owns provenance and history.

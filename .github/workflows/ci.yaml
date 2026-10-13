@@ -90,9 +90,6 @@ jobs:
       - name: Test
         run: mise run test
 
-      - name: Check generated Worker types
-        run: mise run //apps/web:types-check
-
       - name: Build
         run: mise run build
 
