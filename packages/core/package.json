@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@vitest/browser": "^5.0.4",
-    "jsdom": "^30.1.2",
+    "jsdom": "^30.1.3",
     "oxlint": "^1.88.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.4"
