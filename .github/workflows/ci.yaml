@@ -29,6 +29,7 @@ jobs:
   workflow-lint:
     name: Workflow Lint
     runs-on: ubuntu-26.04
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -100,6 +101,7 @@ jobs:
       - workflow-lint
       - app
     runs-on: ubuntu-26.04
+    timeout-minutes: 30
     permissions: {}
     steps:
       - name: Any jobs failed?
