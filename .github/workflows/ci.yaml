@@ -6,8 +6,6 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "**.md"
   pull_request:
     branches:
       - main
@@ -26,30 +24,8 @@ env:
   MISE_TASK_RUN_AUTO_INSTALL: "false"
 
 jobs:
-  workflow-lint:
-    name: Workflow Lint
-    runs-on: ubuntu-26.04
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Mise
-        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
-        with:
-          install_args: --locked jactionlint
-
-      - name: Lint workflows
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: jactionlint --online --shellcheck= --format github
-
-  app:
-    name: App
+  check:
+    name: Build Success
     runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
@@ -61,7 +37,7 @@ jobs:
       - name: Setup Mise
         uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
-          install_args: --locked node pnpm oxfmt
+          install_args: --locked jactionlint node pnpm oxfmt
 
       - name: Resolve pnpm store
         id: pnpm
@@ -71,34 +47,13 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.pnpm.outputs.path }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-pnpm-
 
-      - name: Check formatting
-        run: mise run fmt-check
+      - name: Lint workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: jactionlint --online --shellcheck= --format github
 
-      - name: Lint
-        run: mise run lint
-
-      - name: Test
-        run: mise run test
-
-      - name: Build
-        run: mise run build
-
-  status:
-    if: ${{ !cancelled() }}
-    name: Build Success
-    needs:
-      - workflow-lint
-      - app
-    runs-on: ubuntu-26.04
-    timeout-minutes: 30
-    permissions: {}
-    steps:
-      - name: Any jobs failed?
-        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-        run: exit 1
-      - name: All jobs passed or skipped?
-        if: ${{ !(contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
-        run: echo "All jobs passed or skipped" && echo "${{ toJSON(needs.*.result) }}"
+      - name: Check application
+        run: mise run check

@@ -4,7 +4,6 @@ depends = ["//:deps"]
 run = "pnpm run dev"
 
 [tasks.build]
-description = "Generate Worker types and build the app"
 depends = ["//:deps"]
 run = "pnpm run build"
 
@@ -19,12 +18,10 @@ depends = ["//:deps"]
 run = "pnpm run deploy"
 
 [tasks.lint]
-description = "Lint and type-check"
 depends = ["//:deps"]
 run = "pnpm run lint"
 
 [tasks.lint-fix]
-description = "Fix lint issues and type-check"
 depends = ["//:deps"]
 run = "pnpm run lint:fix"
 

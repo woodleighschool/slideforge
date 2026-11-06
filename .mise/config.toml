@@ -18,6 +18,9 @@ config_roots = ["apps/web", "packages/core"]
 [tasks.deps]
 run = "pnpm install --frozen-lockfile"
 
+[tasks.check]
+depends = ["fmt-check", "lint", "test", "build"]
+
 [tasks.dev]
 run = { task = "//apps/web:dev" }
 
