@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { extractResourceCardFilenames, matchSavedPageResources } from "../src/seqtaResourceCards.js";
+import {
+  extractResourceCardFilenames,
+  matchSavedPageResources,
+} from "../src/seqtaResourceCards.js";
 import type { ResourceEntry, ResourceMap } from "../src/types.js";
 
 function resourceMap(entries: Record<string, Partial<ResourceEntry>>): ResourceMap {
@@ -84,7 +87,10 @@ describe("matchSavedPageResources", () => {
   });
 
   it("returns nothing for a page with no Resources block", () => {
-    const result = matchSavedPageResources("<p>Just app chrome, no resources.</p>", resourceMap({}));
+    const result = matchSavedPageResources(
+      "<p>Just app chrome, no resources.</p>",
+      resourceMap({}),
+    );
 
     expect(result.matched).toEqual([]);
     expect(result.unmatchedFilenames).toEqual([]);
