@@ -25,7 +25,6 @@ export function App() {
             presentationName={builder.presentationName}
             hasZip={builder.resources !== null}
             hasHtml={builder.lessonHTML.trim().length > 0}
-            extraFileCount={builder.selectedExtraFiles.size}
             outputFormat={builder.outputFormat}
             ready={builder.forgeState.kind === "success"}
           />

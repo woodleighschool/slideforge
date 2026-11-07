@@ -2,7 +2,6 @@ import {
   CheckCircle2Icon,
   FileArchiveIcon,
   FileCode2Icon,
-  FileSearchIcon,
   FolderOpenIcon,
   HammerIcon,
   ImageIcon,
@@ -17,7 +16,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
   FieldContent,
@@ -103,7 +101,7 @@ export function BuildPanel({ builder }: { builder: Builder }) {
       <CardHeader>
         <CardTitle>Build your presentation</CardTitle>
         <CardDescription>
-          Work through the six steps, then forge an editable PowerPoint.
+          Work through the five steps, then forge an editable PowerPoint.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -238,6 +236,11 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               value={builder.lessonHTML}
               onChange={(event) => builder.setLessonHTML(event.target.value)}
             />
+            <FieldDescription>
+              If the Resources list won't copy across cleanly, save the whole lesson page instead
+              (Cmd+S in Chrome, "Webpage, HTML only") and paste that here — SlideForge will still
+              find the files by their exact names.
+            </FieldDescription>
             <Button
               variant="outline"
               size="sm"
@@ -250,66 +253,10 @@ export function BuildPanel({ builder }: { builder: Builder }) {
             </Button>
           </Field>
 
-          <Field>
-            <StepHeading
-              step={4}
-              title="Extra files (optional)"
-              description="For a lesson with no resource list you can paste — search your loaded resources by the lesson's own words, then tick the ones that belong"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="self-start"
-              disabled={!builder.resources}
-              onClick={builder.findExtraFiles}
-            >
-              <FileSearchIcon data-icon="inline-start" />
-              Find matching files
-            </Button>
-            {!builder.resources && (
-              <FieldDescription>Load a resources folder or ZIP in step 2 first.</FieldDescription>
-            )}
-
-            {builder.hasSearchedExtraFiles && builder.resourceCandidates.length === 0 && (
-              <Alert aria-live="polite">
-                <TriangleAlertIcon />
-                <AlertTitle>No likely matches found</AlertTitle>
-                <AlertDescription>
-                  Try adding a bit more of the lesson's text or title above, then search again.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {builder.resourceCandidates.length > 0 && (
-              <div className="flex flex-col gap-2 rounded-md border p-3">
-                {builder.resourceCandidates.map((candidate) => {
-                  const path = candidate.entry.relativePath;
-                  return (
-                    <FieldLabel key={path} className="flex-row items-start gap-2">
-                      <Checkbox
-                        checked={builder.selectedExtraFiles.has(path)}
-                        onCheckedChange={() => builder.toggleExtraFile(path)}
-                      />
-                      <span className="flex min-w-0 flex-1 flex-col text-sm">
-                        <span className="truncate font-medium text-foreground">
-                          {path.split("/").pop()}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatBytes(candidate.entry.bytes)}
-                        </span>
-                      </span>
-                    </FieldLabel>
-                  );
-                })}
-              </div>
-            )}
-          </Field>
-
           <FieldSet>
             <FieldLegend className="flex items-start gap-2">
               <Badge variant="secondary" className="size-5 rounded-full p-0">
-                5
+                4
               </Badge>
               <span>Choose output</span>
             </FieldLegend>
@@ -348,7 +295,7 @@ export function BuildPanel({ builder }: { builder: Builder }) {
 
           <Field>
             <StepHeading
-              step={6}
+              step={5}
               title="Forge presentation"
               description="Build and download the presentation"
             />

@@ -1,11 +1,10 @@
 import {
   buildGenerationInput,
-  findResourceCandidates,
   importResourceFolder,
   importResourceZip,
   parseLessonHTML,
 } from "@slideforge/core";
-import type { LessonBlock, ResourceCandidate, ResourceMap } from "@slideforge/core";
+import type { LessonBlock, ResourceMap } from "@slideforge/core";
 import { useEffect, useState } from "react";
 
 import { loadLastResourceZip, saveLastResourceZip, type LastResourceZip } from "@/lib/idbStore";
@@ -31,9 +30,6 @@ export function useBuilder() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewBlocks, setPreviewBlocks] = useState<LessonBlock[]>([]);
   const [forgeState, setForgeState] = useState<ForgeState>({ kind: "idle" });
-  const [resourceCandidates, setResourceCandidates] = useState<ResourceCandidate[]>([]);
-  const [selectedExtraFiles, setSelectedExtraFiles] = useState<Set<string>>(new Set());
-  const [hasSearchedExtraFiles, setHasSearchedExtraFiles] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,30 +110,6 @@ export function useBuilder() {
     setPreviewOpen(true);
   }
 
-  /** For a lesson whose HTML has no usable resource names at all — searches
-   * the loaded resources by the words already in the pasted lesson text and
-   * title, and shows a short list for the teacher to tick by hand. Nothing
-   * here is picked automatically. */
-  function findExtraFiles() {
-    setHasSearchedExtraFiles(true);
-    setSelectedExtraFiles(new Set());
-    if (!resources) {
-      setResourceCandidates([]);
-      return;
-    }
-    const queryText = `${presentationName} ${lessonHTML}`;
-    setResourceCandidates(findResourceCandidates(queryText, resources));
-  }
-
-  function toggleExtraFile(relativePath: string) {
-    setSelectedExtraFiles((current) => {
-      const next = new Set(current);
-      if (next.has(relativePath)) next.delete(relativePath);
-      else next.add(relativePath);
-      return next;
-    });
-  }
-
   async function forge() {
     if (!lessonHTML.trim()) {
       setForgeState({ kind: "error", message: "Paste your lesson HTML before forging." });
@@ -165,18 +137,8 @@ export function useBuilder() {
         });
       }
 
-      const extraResources = resources
-        ? Array.from(selectedExtraFiles)
-            .map((relativePath) => resources.get(relativePath))
-            .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined)
-            .map((entry) => ({
-              filename: entry.relativePath.split("/").pop() ?? entry.relativePath,
-              dataUrl: entry.dataUrl,
-            }))
-        : [];
-
       const { generatePptx } = await import("@slideforge/core/generate");
-      await generatePptx(input, {}, extraResources);
+      await generatePptx(input);
       setForgeState({ kind: "success" });
     } catch (error) {
       setForgeState({
@@ -200,16 +162,11 @@ export function useBuilder() {
     setPreviewOpen,
     previewBlocks,
     forgeState,
-    resourceCandidates,
-    selectedExtraFiles,
-    hasSearchedExtraFiles,
     handleZipFile,
     handleFolderFiles,
     selectLastZip,
     dismissLastZipSuggestion: () => setLastZipInfo(null),
     openPreview,
-    findExtraFiles,
-    toggleExtraFile,
     forge,
   };
 }

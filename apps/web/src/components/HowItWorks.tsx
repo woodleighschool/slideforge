@@ -2,7 +2,6 @@ import {
   CheckIcon,
   FileArchiveIcon,
   FileCode2Icon,
-  FileSearchIcon,
   HammerIcon,
   ImageIcon,
   PresentationIcon,
@@ -42,14 +41,12 @@ export function HowItWorks({
   presentationName,
   hasZip,
   hasHtml,
-  extraFileCount,
   outputFormat,
   ready,
 }: {
   presentationName: string;
   hasZip: boolean;
   hasHtml: boolean;
-  extraFileCount: number;
   outputFormat: "pptx" | "png";
   ready: boolean;
 }) {
@@ -92,18 +89,6 @@ export function HowItWorks({
         />
         <Row
           step={4}
-          title="Extra files (optional)"
-          description="Tick any extra files found for this lesson"
-          trailing={
-            extraFileCount > 0 ? (
-              <CheckIcon className="size-4 text-success" />
-            ) : (
-              <FileSearchIcon className="size-4" />
-            )
-          }
-        />
-        <Row
-          step={5}
           title="Choose output"
           description="PowerPoint or lesson pages"
           trailing={
@@ -114,7 +99,7 @@ export function HowItWorks({
           }
         />
         <Row
-          step={6}
+          step={5}
           title="Forge presentation"
           description="Build and download it"
           trailing={<HammerIcon className="size-4" />}
