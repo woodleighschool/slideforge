@@ -110,6 +110,16 @@ export function useBuilder() {
     setPreviewOpen(true);
   }
 
+  /** Loads a saved lesson page (or any .html/.txt the teacher drops/picks)
+   * straight into the same box a paste would fill. */
+  async function handleLessonHTMLFile(file: File) {
+    try {
+      setLessonHTML(await file.text());
+    } catch {
+      // Leave whatever was already pasted/typed untouched.
+    }
+  }
+
   async function forge() {
     if (!lessonHTML.trim()) {
       setForgeState({ kind: "error", message: "Paste your lesson HTML before forging." });
@@ -167,6 +177,7 @@ export function useBuilder() {
     selectLastZip,
     dismissLastZipSuggestion: () => setLastZipInfo(null),
     openPreview,
+    handleLessonHTMLFile,
     forge,
   };
 }

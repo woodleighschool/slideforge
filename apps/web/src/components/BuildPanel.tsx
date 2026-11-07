@@ -94,7 +94,9 @@ function ResourceStatus({ status }: { status: Builder["resourceStatus"] }) {
 export function BuildPanel({ builder }: { builder: Builder }) {
   const zipInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const lessonFileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [lessonDragOver, setLessonDragOver] = useState(false);
 
   return (
     <Card>
@@ -231,26 +233,64 @@ export function BuildPanel({ builder }: { builder: Builder }) {
             <Textarea
               id="lesson-html"
               aria-label="Lesson HTML"
-              placeholder="Paste the raw lesson HTML here…"
-              className="min-h-32 font-mono text-xs"
+              placeholder="Paste the raw lesson HTML here, or drop a saved lesson page (.html) onto this box…"
+              className={cn(
+                "min-h-32 font-mono text-xs",
+                lessonDragOver && "border-primary ring-3 ring-ring/50",
+              )}
               value={builder.lessonHTML}
               onChange={(event) => builder.setLessonHTML(event.target.value)}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setLessonDragOver(true);
+              }}
+              onDragLeave={() => setLessonDragOver(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setLessonDragOver(false);
+                const file = event.dataTransfer.files[0];
+                if (file) void builder.handleLessonHTMLFile(file);
+              }}
             />
             <FieldDescription>
               If the Resources list won't copy across cleanly, save the whole lesson page instead
-              (Cmd+S in Chrome, "Webpage, HTML only") and paste that here — SlideForge will still
-              find the files by their exact names.
+              (Cmd+S in Chrome, "Webpage, HTML only") and drop or upload that file here — SlideForge
+              will still find the files by their exact names.
             </FieldDescription>
-            <Button
-              variant="outline"
-              size="sm"
-              className="self-start"
-              disabled={!builder.lessonHTML.trim()}
-              onClick={builder.openPreview}
-            >
-              <SearchIcon data-icon="inline-start" />
-              Preview parsed content
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="self-start"
+                disabled={!builder.lessonHTML.trim()}
+                onClick={builder.openPreview}
+              >
+                <SearchIcon data-icon="inline-start" />
+                Preview parsed content
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="self-start"
+                onClick={() => lessonFileInputRef.current?.click()}
+              >
+                <FileCode2Icon data-icon="inline-start" />
+                Upload a saved lesson page
+              </Button>
+            </div>
+            <input
+              ref={lessonFileInputRef}
+              type="file"
+              accept=".html,.htm,text/html"
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void builder.handleLessonHTMLFile(file);
+                event.target.value = "";
+              }}
+            />
           </Field>
 
           <FieldSet>
