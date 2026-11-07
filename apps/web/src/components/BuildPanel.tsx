@@ -123,7 +123,7 @@ export function BuildPanel({ builder }: { builder: Builder }) {
             <StepHeading
               step={2}
               title="Resources"
-              description="Select the exported resources folder or ZIP linked from the lesson HTML"
+              description="Select your subject's resources folder or ZIP — the one with every lesson's files"
             />
             <Button
               type="button"
