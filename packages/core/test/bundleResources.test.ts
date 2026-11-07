@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 
-import { buildResourceBundle, buildResourcesOnlyBundle } from "../src/bundleResources.js";
+import { buildResourceBundle } from "../src/bundleResources.js";
 
 const PPTX_BYTES = new TextEncoder().encode("fake pptx bytes").buffer as ArrayBuffer;
 
@@ -66,37 +66,5 @@ describe("buildResourceBundle", () => {
     const zip = await JSZip.loadAsync(bundle.bytes);
     const bytes = await zip.file("Resources/worksheet.pdf")?.async("uint8array");
     expect(Array.from(bytes ?? [])).toEqual([1, 2, 3, 4]);
-  });
-});
-
-describe("buildResourcesOnlyBundle", () => {
-  it("zips only the resources under Resources/, with no presentation", async () => {
-    const bundle = await buildResourcesOnlyBundle("Kinematics", [
-      { filename: "Kinematics notes Graphs.pdf", dataUrl: "data:application/pdf;base64,AAAA" },
-      { filename: "Notes for EX 10D.pdf", dataUrl: "data:application/pdf;base64,BBBB" },
-    ]);
-
-    expect(bundle.fileName).toBe("Kinematics.zip");
-
-    const zip = await JSZip.loadAsync(bundle.bytes);
-    expect(Object.keys(zip.files).sort()).toEqual(
-      [
-        "README.txt",
-        "Resources/",
-        "Resources/Kinematics notes Graphs.pdf",
-        "Resources/Notes for EX 10D.pdf",
-      ].sort(),
-    );
-  });
-
-  it("lists the resources by name in the README without mentioning a presentation", async () => {
-    const bundle = await buildResourcesOnlyBundle("Kinematics", [
-      { filename: "worksheet.pdf", dataUrl: "data:application/pdf;base64,AAAA" },
-    ]);
-    const zip = await JSZip.loadAsync(bundle.bytes);
-    const readme = await zip.file("README.txt")?.async("string");
-
-    expect(readme).toContain("worksheet.pdf");
-    expect(readme).not.toContain(".pptx");
   });
 });

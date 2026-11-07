@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildGenerationInput } from "../src/buildPipeline.js";
+import { buildGenerationInputFromSavedPage } from "../src/buildPipeline.js";
 import { parseLessonHTML } from "../src/lessonHTMLParser.js";
 import type { ResourceEntry } from "../src/types.js";
 
@@ -23,6 +23,59 @@ const LESSON_HTML = `
   <p>&nbsp;</p>
   <p>Thanks for watching.</p>
 `;
+
+// Synthetic stand-ins for a saved Seqta lesson page's module markup — same
+// shapes covered in seqtaSavedPageModules.test.ts. A generic/"Text" module's
+// own body carries no class matching "ModuleBody", so its content always
+// goes through the genericBlocks -> parseLessonHTML fallback; bracket tags
+// inside that fallback content exercise the same image/resource/embed
+// matching parseLessonHTML already handles on its own.
+function moduleShell(typeLabel: string, body: string): string {
+  return (
+    `<div class="Module__wrapper___mC00E" data-testid="lesson-module">` +
+    `<div class="Module__module___q1"><div class="Module__content___q2">` +
+    `<div class="ModuleTitle__ModuleTitle___q3">` +
+    `<div class="ModuleTitle__title___q4" data-testid="module-type-label">${typeLabel}</div>` +
+    `</div>${body}</div></div></div>`
+  );
+}
+
+function titleModule(text: string): string {
+  return moduleShell("Title", `<div class="TitleModuleBody__moduleBody___X3nMr">${text}</div>`);
+}
+
+function textModule(innerHTML: string): string {
+  return moduleShell("Text", `<div class="TextBlock__content___q9">${innerHTML}</div>`);
+}
+
+function savedPage(...modules: string[]): string {
+  return (
+    `<html><body><div class="RootModule__root-module___xYz12">` +
+    modules.join("") +
+    `</div></body></html>`
+  );
+}
+
+const SAVED_PAGE_HTML = savedPage(
+  titleModule("Introduction"),
+  textModule(
+    `<p>Welcome to the lesson. See <a href="https://example.com">the syllabus</a> for details.</p>
+    <ul>
+      <li>First point</li>
+      <li>Second point</li>
+    </ul>
+    <table>
+      <tr><th>Term</th><th>Definition</th></tr>
+      <tr><td>Inflation</td><td>Rising prices</td></tr>
+    </table>
+    [[image:diagram.png|left|medium]]
+    [[resource:handout.pdf]]`,
+  ),
+  titleModule("Video"),
+  textModule("[[embed:https://youtu.be/example|full]]"),
+  titleModule("Wrap-up"),
+  textModule("<p>&nbsp;</p><p>Thanks for watching.</p>"),
+);
 
 function resourceMap(entries: Record<string, Partial<ResourceEntry>>): Map<string, ResourceEntry> {
   const map = new Map<string, ResourceEntry>();
@@ -53,15 +106,15 @@ describe("parseLessonHTML", () => {
   });
 });
 
-describe("buildGenerationInput", () => {
+describe("buildGenerationInputFromSavedPage", () => {
   it("assembles slides, matches resources, and reports unmatched images", () => {
     const resources = resourceMap({
       "diagram.png": { relativePath: "diagram.png" },
     });
 
-    const result = buildGenerationInput({
+    const result = buildGenerationInputFromSavedPage({
       presentationName: "Test Lesson",
-      lessonHTML: LESSON_HTML,
+      savedPageHTML: SAVED_PAGE_HTML,
       resources,
     });
 
@@ -79,9 +132,9 @@ describe("buildGenerationInput", () => {
   });
 
   it("reports an image as unmatched when no resource fits", () => {
-    const result = buildGenerationInput({
+    const result = buildGenerationInputFromSavedPage({
       presentationName: "",
-      lessonHTML: "[[image:missing.png]]",
+      savedPageHTML: savedPage(textModule("[[image:missing.png]]")),
       resources: resourceMap({}),
     });
 
@@ -94,9 +147,9 @@ describe("buildGenerationInput", () => {
       "42_photo.png": { relativePath: "42_photo.png" },
     });
 
-    const result = buildGenerationInput({
+    const result = buildGenerationInputFromSavedPage({
       presentationName: "Test",
-      lessonHTML: "[[image:photo.png]]",
+      savedPageHTML: savedPage(textModule("[[image:photo.png]]")),
       resources,
     });
 
@@ -112,9 +165,9 @@ describe("buildGenerationInput", () => {
       },
     });
 
-    const result = buildGenerationInput({
+    const result = buildGenerationInputFromSavedPage({
       presentationName: "Test",
-      lessonHTML: "[[resource:handout.docx]]",
+      savedPageHTML: savedPage(textModule("[[resource:handout.docx]]")),
       resources,
     });
 
@@ -133,9 +186,9 @@ describe("buildGenerationInput", () => {
   });
 
   it("reports a resource card as unmatched when no resource fits", () => {
-    const result = buildGenerationInput({
+    const result = buildGenerationInputFromSavedPage({
       presentationName: "",
-      lessonHTML: "[[resource:missing.docx]]",
+      savedPageHTML: savedPage(textModule("[[resource:missing.docx]]")),
       resources: resourceMap({}),
     });
 
@@ -147,9 +200,9 @@ describe("buildGenerationInput", () => {
       "17_Handout.docx": { relativePath: "17_Handout.docx" },
     });
 
-    const result = buildGenerationInput({
+    const result = buildGenerationInputFromSavedPage({
       presentationName: "Test",
-      lessonHTML: "[[resource:Handout.docx]]",
+      savedPageHTML: savedPage(textModule("[[resource:Handout.docx]]")),
       resources,
     });
 

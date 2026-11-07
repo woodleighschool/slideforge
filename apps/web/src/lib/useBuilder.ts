@@ -1,15 +1,12 @@
 import {
-  buildGenerationInput,
-  buildResourcesOnlyBundle,
+  buildGenerationInputFromSavedPage,
+  extractLessonBlocksFromSavedPage,
   importResourceFolder,
   importResourceZip,
-  matchSavedPageResources,
-  parseLessonHTML,
 } from "@slideforge/core";
 import type { LessonBlock, ResourceMap } from "@slideforge/core";
 import { useEffect, useState } from "react";
 
-import { downloadBytes } from "@/lib/downloadBytes";
 import { loadLastResourceZip, saveLastResourceZip, type LastResourceZip } from "@/lib/idbStore";
 
 export type ResourceStatus =
@@ -26,7 +23,7 @@ export type ForgeState =
 export type SavedPageStatus =
   | { kind: "idle" }
   | { kind: "reading" }
-  | { kind: "success"; matchedCount: number; unmatchedFilenames: string[] }
+  | { kind: "success"; fileName: string; blockCount: number }
   | { kind: "error"; message: string };
 
 export function useBuilder() {
@@ -34,7 +31,7 @@ export function useBuilder() {
   const [resources, setResources] = useState<ResourceMap | null>(null);
   const [resourceStatus, setResourceStatus] = useState<ResourceStatus>({ kind: "idle" });
   const [lastZipInfo, setLastZipInfo] = useState<LastResourceZip | null>(null);
-  const [lessonHTML, setLessonHTML] = useState("");
+  const [savedPageHTML, setSavedPageHTML] = useState("");
   const [outputFormat, setOutputFormat] = useState<"pptx" | "png">("pptx");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewBlocks, setPreviewBlocks] = useState<LessonBlock[]>([]);
@@ -116,46 +113,34 @@ export function useBuilder() {
   }
 
   function openPreview() {
-    setPreviewBlocks(lessonHTML.trim() ? parseLessonHTML(lessonHTML) : []);
+    setPreviewBlocks(savedPageHTML ? extractLessonBlocksFromSavedPage(savedPageHTML) : []);
     setPreviewOpen(true);
   }
 
-  /** Separate from the paste-and-forge flow above: a saved lesson page is
-   * the whole Seqta app shell, not lesson content, so it's never run
-   * through buildGenerationInput/parseLessonHTML — this only ever looks
-   * for the Resources block and downloads the matched files, never a
-   * slide. */
-  async function matchSavedPageFile(file: File) {
-    if (!resources) {
-      setSavedPageStatus({
-        kind: "error",
-        message: "Load a resources folder or ZIP in step 2 first.",
-      });
-      return;
-    }
-
+  /** The saved lesson page is now the only source of lesson content — it
+   * drives the whole build, not just the Resources section, so this reads
+   * it once up front to confirm it actually has lesson modules in it. */
+  async function handleSavedPageFile(file: File) {
     setSavedPageStatus({ kind: "reading" });
 
     try {
       const html = await file.text();
-      const { matched, unmatchedFilenames } = matchSavedPageResources(html, resources);
+      const blocks = extractLessonBlocksFromSavedPage(html);
 
-      if (matched.length === 0 && unmatchedFilenames.length === 0) {
+      if (blocks.length === 0) {
+        setSavedPageHTML("");
         setSavedPageStatus({
           kind: "error",
-          message: "No Resources section was found in that saved page.",
+          message:
+            'No lesson content was found in that file. Make sure you saved the lesson page itself (in Chrome: Cmd/Ctrl+S, then "Webpage, HTML only"), not just its HTML source.',
         });
         return;
       }
 
-      if (matched.length > 0) {
-        const outputName = presentationName.trim() || "Resources";
-        const bundle = await buildResourcesOnlyBundle(outputName, matched);
-        downloadBytes(bundle.bytes, bundle.fileName, "application/zip");
-      }
-
-      setSavedPageStatus({ kind: "success", matchedCount: matched.length, unmatchedFilenames });
+      setSavedPageHTML(html);
+      setSavedPageStatus({ kind: "success", fileName: file.name, blockCount: blocks.length });
     } catch (error) {
+      setSavedPageHTML("");
       setSavedPageStatus({
         kind: "error",
         message: error instanceof Error ? error.message : String(error),
@@ -164,17 +149,17 @@ export function useBuilder() {
   }
 
   async function forge() {
-    if (!lessonHTML.trim()) {
-      setForgeState({ kind: "error", message: "Paste your lesson HTML before forging." });
+    if (!savedPageHTML) {
+      setForgeState({ kind: "error", message: "Upload your saved lesson page before forging." });
       return;
     }
 
     setForgeState({ kind: "forging", message: "Assembling slides…" });
 
     try {
-      const input = buildGenerationInput({
+      const input = buildGenerationInputFromSavedPage({
         presentationName,
-        lessonHTML,
+        savedPageHTML,
         resources: resources ?? new Map(),
       });
 
@@ -207,8 +192,7 @@ export function useBuilder() {
     resources,
     resourceStatus,
     lastZipInfo,
-    lessonHTML,
-    setLessonHTML,
+    savedPageHTML,
     outputFormat,
     setOutputFormat,
     previewOpen,
@@ -221,7 +205,7 @@ export function useBuilder() {
     selectLastZip,
     dismissLastZipSuggestion: () => setLastZipInfo(null),
     openPreview,
-    matchSavedPageFile,
+    handleSavedPageFile,
     forge,
   };
 }

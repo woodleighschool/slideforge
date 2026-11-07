@@ -1,23 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  extractResourceCardFilenames,
-  matchSavedPageResources,
-} from "../src/seqtaResourceCards.js";
-import type { ResourceEntry, ResourceMap } from "../src/types.js";
-
-function resourceMap(entries: Record<string, Partial<ResourceEntry>>): ResourceMap {
-  const map: ResourceMap = new Map();
-  for (const [key, value] of Object.entries(entries)) {
-    map.set(key.toLowerCase(), {
-      relativePath: value.relativePath ?? key,
-      blob: value.blob ?? new Blob(),
-      dataUrl: value.dataUrl ?? "data:application/pdf;base64,AAAA",
-      bytes: value.bytes ?? 4,
-    });
-  }
-  return map;
-}
+import { extractResourceCardFilenames } from "../src/seqtaResourceCards.js";
 
 /** A trimmed-down stand-in for a saved Seqta lesson page's Resources
  * block — same shape (an <a> wrapping an icon and a name <div>, both
@@ -56,43 +39,5 @@ describe("extractResourceCardFilenames", () => {
 
   it("returns nothing for lesson HTML with no Resources block", () => {
     expect(extractResourceCardFilenames("<p>Just some lesson text.</p>")).toEqual([]);
-  });
-});
-
-describe("matchSavedPageResources", () => {
-  it("matches a card's exact name against the resources folder's export-prefixed name", () => {
-    const html = `<html><body>${resourceCard("Worksheet notes.pdf", "AbC1")}</body></html>`;
-    const resources = resourceMap({
-      "12_Worksheet notes.pdf": {
-        relativePath: "12_Worksheet notes.pdf",
-        dataUrl: "data:application/pdf;base64,AAAA",
-      },
-    });
-
-    const result = matchSavedPageResources(html, resources);
-
-    expect(result.matched).toEqual([
-      { filename: "Worksheet notes.pdf", dataUrl: "data:application/pdf;base64,AAAA" },
-    ]);
-    expect(result.unmatchedFilenames).toEqual([]);
-  });
-
-  it("reports a card's file as unmatched when it isn't in the loaded resources", () => {
-    const html = `<html><body>${resourceCard("Missing file.pdf", "AbC1")}</body></html>`;
-
-    const result = matchSavedPageResources(html, resourceMap({}));
-
-    expect(result.matched).toEqual([]);
-    expect(result.unmatchedFilenames).toEqual(["Missing file.pdf"]);
-  });
-
-  it("returns nothing for a page with no Resources block", () => {
-    const result = matchSavedPageResources(
-      "<p>Just app chrome, no resources.</p>",
-      resourceMap({}),
-    );
-
-    expect(result.matched).toEqual([]);
-    expect(result.unmatchedFilenames).toEqual([]);
   });
 });

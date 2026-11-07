@@ -24,7 +24,7 @@ export function App() {
           <HowItWorks
             presentationName={builder.presentationName}
             hasZip={builder.resources !== null}
-            hasHtml={builder.lessonHTML.trim().length > 0}
+            hasHtml={builder.savedPageHTML.length > 0}
             outputFormat={builder.outputFormat}
             ready={builder.forgeState.kind === "success"}
           />

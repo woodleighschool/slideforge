@@ -29,7 +29,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import type { Builder } from "@/lib/useBuilder";
 import { cn } from "@/lib/utils";
 
@@ -107,7 +106,7 @@ function SavedPageStatus({ status }: { status: Builder["savedPageStatus"] }) {
     return (
       <Alert variant="destructive" aria-live="assertive">
         <XCircleIcon />
-        <AlertTitle>Couldn't find those files</AlertTitle>
+        <AlertTitle>Couldn't read that page</AlertTitle>
         <AlertDescription>{status.message}</AlertDescription>
       </Alert>
     );
@@ -116,15 +115,11 @@ function SavedPageStatus({ status }: { status: Builder["savedPageStatus"] }) {
   return (
     <Alert variant="success" aria-live="polite">
       <CheckCircle2Icon />
-      <AlertTitle>
-        {status.matchedCount} file{status.matchedCount === 1 ? "" : "s"} downloaded as a folder
-      </AlertTitle>
-      {status.unmatchedFilenames.length > 0 && (
-        <AlertDescription>
-          {status.unmatchedFilenames.length} file{status.unmatchedFilenames.length === 1 ? "" : "s"}{" "}
-          weren't found in your loaded resources: {status.unmatchedFilenames.join(", ")}
-        </AlertDescription>
-      )}
+      <AlertTitle>{status.fileName} ready</AlertTitle>
+      <AlertDescription>
+        Found {status.blockCount} piece{status.blockCount === 1 ? "" : "s"} of lesson content.
+        Preview it below, or go ahead and forge.
+      </AlertDescription>
     </Alert>
   );
 }
@@ -266,47 +261,18 @@ export function BuildPanel({ builder }: { builder: Builder }) {
             <StepHeading
               step={3}
               title="Lesson content"
-              description="Give SlideForge the lesson, whichever way you have it"
+              description="Upload the lesson page you saved from your browser"
             />
-
-            <p className="text-sm font-semibold">Paste Seqta HTML here</p>
-            <Textarea
-              id="lesson-html"
-              aria-label="Lesson HTML"
-              placeholder="Paste the raw lesson HTML here…"
-              className="min-h-32 font-mono text-xs"
-              value={builder.lessonHTML}
-              onChange={(event) => builder.setLessonHTML(event.target.value)}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="self-start"
-              disabled={!builder.lessonHTML.trim()}
-              onClick={builder.openPreview}
-            >
-              <SearchIcon data-icon="inline-start" />
-              Preview parsed content
-            </Button>
-
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" />
-              or
-              <span className="h-px flex-1 bg-border" />
-            </div>
-
-            <p className="text-sm font-semibold">Upload HTML file saved from your browser</p>
             <FieldDescription>
-              Use this when a lesson's Resources section won't paste in cleanly above. To save just
-              this lesson's page, open it, press Cmd+S in Chrome (choose "Webpage, HTML only"), then
-              upload the saved file here — we'll pull out its files and download them as a folder.
-              This does not build a presentation.
+              Open the lesson in Seqta, then save the whole page: Cmd/Ctrl+S in Chrome, choosing
+              "Webpage, HTML only". Upload that file here — SlideForge reads the lesson's titles,
+              text, and resources straight out of it to build the presentation.
             </FieldDescription>
             <Button
               type="button"
               variant="outline"
               className={cn(
-                "h-auto w-full flex-col whitespace-normal border-dashed py-4 text-center text-muted-foreground",
+                "h-auto w-full flex-col whitespace-normal border-dashed py-6 text-center text-muted-foreground",
                 savedPageDragOver && "border-primary bg-primary/5 text-foreground",
               )}
               onClick={() => savedPageInputRef.current?.click()}
@@ -319,7 +285,7 @@ export function BuildPanel({ builder }: { builder: Builder }) {
                 event.preventDefault();
                 setSavedPageDragOver(false);
                 const file = event.dataTransfer.files[0];
-                if (file) void builder.matchSavedPageFile(file);
+                if (file) void builder.handleSavedPageFile(file);
               }}
             >
               <FileCode2Icon />
@@ -336,11 +302,21 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               tabIndex={-1}
               onChange={(event) => {
                 const file = event.target.files?.[0];
-                if (file) void builder.matchSavedPageFile(file);
+                if (file) void builder.handleSavedPageFile(file);
                 event.target.value = "";
               }}
             />
             <SavedPageStatus status={builder.savedPageStatus} />
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-start"
+              disabled={!builder.savedPageHTML}
+              onClick={builder.openPreview}
+            >
+              <SearchIcon data-icon="inline-start" />
+              Preview parsed content
+            </Button>
           </Field>
 
           <FieldSet>
