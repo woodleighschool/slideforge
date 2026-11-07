@@ -299,7 +299,9 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               description="Upload the lesson page you saved from your browser"
             />
             <FieldDescription>
-              Open the lesson in Seqta, then save the whole page: Cmd/Ctrl+S in Chrome, choosing
+              Open the lesson in Seqta's{" "}
+              <strong className="font-medium text-foreground">editor</strong> view (not the
+              student/parent preview), then save the whole page: Cmd/Ctrl+S in Chrome, choosing
               "Webpage, HTML only". Upload that file here — SlideForge reads the lesson's titles,
               text, and resources straight out of it to build the presentation.
             </FieldDescription>
@@ -353,7 +355,10 @@ export function BuildPanel({ builder }: { builder: Builder }) {
             <FieldDescription>
               Chrome saves this automatically, right next to the lesson page, every time you save it
               — nothing extra to export. Add it too and any Legacy editor sections recover their
-              real text, images, and resources instead of appearing as a blank gap.
+              real text, images, and resources instead of appearing as a blank gap. This only works
+              from the <strong className="font-medium text-foreground">editor</strong> view's save —
+              the student/parent preview's version is missing what's needed to match its images and
+              resources.
             </FieldDescription>
             <Button
               type="button"
