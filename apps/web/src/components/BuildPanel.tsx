@@ -193,6 +193,12 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               title="Resources"
               description="Select your subject's resources folder or ZIP — the one with every lesson's files"
             />
+            <FieldDescription>
+              The saved lesson page (step 3) only carries your resources' <em>file names</em>, not
+              the files themselves. This is where SlideForge gets the actual bytes — to embed your
+              images in the slides and attach your resource files. Skip it and the presentation
+              still builds, but images and resources show as placeholders instead of the real thing.
+            </FieldDescription>
             <Button
               type="button"
               variant="outline"
@@ -327,8 +333,8 @@ export function BuildPanel({ builder }: { builder: Builder }) {
             >
               <FileCode2Icon />
               <span>
-                <strong className="font-medium text-foreground">Choose a file</strong> or drag and
-                drop the saved lesson page
+                <strong className="font-medium text-foreground">Choose the file</strong> — e.g.
+                "Lesson 6 SEQTA.html" — or drag and drop it
               </span>
             </Button>
             <input
@@ -367,7 +373,10 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               onClick={() => companionFolderInputRef.current?.click()}
             >
               <FolderOpenIcon />
-              <span>Choose the "..._files" folder</span>
+              <span>
+                <strong className="font-medium text-foreground">Choose the folder</strong> — e.g.
+                "Lesson 6 SEQTA_files"
+              </span>
             </Button>
             <input
               ref={companionFolderInputRef}
