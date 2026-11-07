@@ -2,11 +2,10 @@ monorepo_root = true
 
 [tools]
 node = "26.13.0"
-pnpm = "12.16.1"
+pnpm = "12.18.0"
 lefthook = "2.2.2"
-"aqua:jdx/jactionlint" = "2.4.0"
+jactionlint = "v2.5.0"
 oxfmt = "0.75.0"
-"npm:@commitlint/cli" = "21.2.4"
 
 [settings]
 experimental = true
@@ -17,48 +16,43 @@ lockfile = true
 config_roots = ["apps/web", "packages/core"]
 
 [tasks.deps]
-description = "Install workspace dependencies"
 run = "pnpm install --frozen-lockfile"
 
+[tasks.check]
+depends = ["fmt-check", "lint", "test", "build"]
+
 [tasks.dev]
-description = "Run the web development server"
 run = { task = "//apps/web:dev" }
 
 [tasks.build]
-description = "Build the core package and the web app"
-depends = ["//packages/core:build", "//apps/web:build"]
+description = "Type-check the core package and build the web app"
+depends = ["//packages/core:typecheck", "//apps/web:build"]
 
 [tasks.deploy]
-description = "Deploy the web app to Cloudflare Workers"
+description = "Build and deploy the web app to Cloudflare Workers"
 depends = ["build"]
 run = { task = "//apps/web:deploy" }
 
 [tasks.test]
-description = "Run every package's tests"
+description = "Test the core package"
 depends = ["//packages/core:test"]
 
 [tasks.typecheck]
-description = "Type-check every package"
 depends = ["//packages/core:typecheck", "//apps/web:typecheck"]
 
 [tasks.lint]
-description = "Lint every package"
 depends = ["//packages/core:lint", "//apps/web:lint"]
 
 [tasks.lint-fix]
-description = "Lint every package and apply fixes"
 depends = ["//packages/core:lint-fix", "//apps/web:lint-fix"]
 
 [tasks.format]
-description = "Format the whole repository"
 run = "oxfmt ."
 
 [tasks.fmt-check]
-description = "Check formatting across the whole repository"
 run = "oxfmt --check ."
 
 [tasks.clean]
-description = "Remove build output from every package"
 depends = ["//packages/core:clean", "//apps/web:clean"]
 
 [hooks]

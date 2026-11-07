@@ -1,15 +1,14 @@
 [tasks.dev]
-description = "Run the web development server"
+description = "Generate Worker types and start the development server"
 depends = ["//:deps"]
 run = "pnpm run dev"
 
 [tasks.build]
-description = "Build the web app"
 depends = ["//:deps"]
 run = "pnpm run build"
 
 [tasks.serve]
-description = "Serve the built web app"
+description = "Serve the production build"
 depends = ["//:deps"]
 run = "pnpm run preview"
 
@@ -19,26 +18,22 @@ depends = ["//:deps"]
 run = "pnpm run deploy"
 
 [tasks.lint]
-description = "Run web lint and typecheck"
 depends = ["//:deps"]
 run = "pnpm run lint"
 
 [tasks.lint-fix]
-description = "Run web lint fixes and typecheck"
 depends = ["//:deps"]
 run = "pnpm run lint:fix"
 
 [tasks.typecheck]
-description = "Run web typecheck"
+description = "Generate Worker types and type-check"
 depends = ["//:deps"]
 run = "pnpm run typecheck"
 
 [tasks.format]
-description = "Format web code"
 run = "pnpm run format"
 
 [tasks.fmt-check]
-description = "Check web formatting"
 run = "oxfmt --check ."
 
 [tasks.types]
@@ -47,5 +42,5 @@ depends = ["//:deps"]
 run = "pnpm run types"
 
 [tasks.clean]
-description = "Remove web build output"
+description = "Remove build output and Wrangler state"
 run = "rm -rf dist .wrangler"

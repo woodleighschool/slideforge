@@ -8,6 +8,3 @@ glob = ["apps/**/*.{ts,tsx,js,jsx,css}", "packages/**/*.{ts,tsx,js,jsx,css}"]
 exclude = ["**/worker-configuration.d.ts"]
 run = "oxfmt --no-error-on-unmatched-pattern {staged_files}"
 stage_fixed = true
-
-[commit-msg.commands.commitlint]
-run = "commitlint --default-config --edit {1}"
