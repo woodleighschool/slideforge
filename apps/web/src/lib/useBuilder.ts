@@ -1,12 +1,15 @@
 import {
   buildGenerationInput,
+  buildResourcesOnlyBundle,
   importResourceFolder,
   importResourceZip,
+  matchSavedPageResources,
   parseLessonHTML,
 } from "@slideforge/core";
 import type { LessonBlock, ResourceMap } from "@slideforge/core";
 import { useEffect, useState } from "react";
 
+import { downloadBytes } from "@/lib/downloadBytes";
 import { loadLastResourceZip, saveLastResourceZip, type LastResourceZip } from "@/lib/idbStore";
 
 export type ResourceStatus =
@@ -20,6 +23,12 @@ export type ForgeState =
   | { kind: "success" }
   | { kind: "error"; message: string };
 
+export type SavedPageStatus =
+  | { kind: "idle" }
+  | { kind: "reading" }
+  | { kind: "success"; matchedCount: number; unmatchedFilenames: string[] }
+  | { kind: "error"; message: string };
+
 export function useBuilder() {
   const [presentationName, setPresentationName] = useState("");
   const [resources, setResources] = useState<ResourceMap | null>(null);
@@ -30,6 +39,7 @@ export function useBuilder() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewBlocks, setPreviewBlocks] = useState<LessonBlock[]>([]);
   const [forgeState, setForgeState] = useState<ForgeState>({ kind: "idle" });
+  const [savedPageStatus, setSavedPageStatus] = useState<SavedPageStatus>({ kind: "idle" });
 
   useEffect(() => {
     let cancelled = false;
@@ -110,13 +120,46 @@ export function useBuilder() {
     setPreviewOpen(true);
   }
 
-  /** Loads a saved lesson page (or any .html/.txt the teacher drops/picks)
-   * straight into the same box a paste would fill. */
-  async function handleLessonHTMLFile(file: File) {
+  /** Separate from the paste-and-forge flow above: a saved lesson page is
+   * the whole Seqta app shell, not lesson content, so it's never run
+   * through buildGenerationInput/parseLessonHTML — this only ever looks
+   * for the Resources block and downloads the matched files, never a
+   * slide. */
+  async function matchSavedPageFile(file: File) {
+    if (!resources) {
+      setSavedPageStatus({
+        kind: "error",
+        message: "Load a resources folder or ZIP in step 2 first.",
+      });
+      return;
+    }
+
+    setSavedPageStatus({ kind: "reading" });
+
     try {
-      setLessonHTML(await file.text());
-    } catch {
-      // Leave whatever was already pasted/typed untouched.
+      const html = await file.text();
+      const { matched, unmatchedFilenames } = matchSavedPageResources(html, resources);
+
+      if (matched.length === 0 && unmatchedFilenames.length === 0) {
+        setSavedPageStatus({
+          kind: "error",
+          message: "No Resources section was found in that saved page.",
+        });
+        return;
+      }
+
+      if (matched.length > 0) {
+        const outputName = presentationName.trim() || "Resources";
+        const bundle = await buildResourcesOnlyBundle(outputName, matched);
+        downloadBytes(bundle.bytes, bundle.fileName, "application/zip");
+      }
+
+      setSavedPageStatus({ kind: "success", matchedCount: matched.length, unmatchedFilenames });
+    } catch (error) {
+      setSavedPageStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -172,12 +215,13 @@ export function useBuilder() {
     setPreviewOpen,
     previewBlocks,
     forgeState,
+    savedPageStatus,
     handleZipFile,
     handleFolderFiles,
     selectLastZip,
     dismissLastZipSuggestion: () => setLastZipInfo(null),
     openPreview,
-    handleLessonHTMLFile,
+    matchSavedPageFile,
     forge,
   };
 }

@@ -155,48 +155,4 @@ describe("buildGenerationInput", () => {
 
     expect(result.unmatchedResources).toHaveLength(0);
   });
-
-  it("bundles files found in a saved page's Resources block without a slide card", () => {
-    const resources = resourceMap({
-      "12_Worksheet notes.pdf": {
-        relativePath: "12_Worksheet notes.pdf",
-        dataUrl: "data:application/pdf;base64,AAAA",
-      },
-    });
-    const savedPageHTML =
-      `<h2>Intro</h2><p>Some lesson text.</p>` +
-      `<li class="ResourceModuleBody__card___Ab1"><a class="ResourceModuleBody__name___Ab1">` +
-      `<div class="ResourceModuleBody__name___Ab1">Worksheet notes.pdf</div></a></li>`;
-
-    const result = buildGenerationInput({
-      presentationName: "Test",
-      lessonHTML: savedPageHTML,
-      resources,
-    });
-
-    expect(result.unmatchedResources).toHaveLength(0);
-    expect(result.extraResources).toEqual([
-      { filename: "Worksheet notes.pdf", dataUrl: "data:application/pdf;base64,AAAA" },
-    ]);
-    // Not rendered as a slide resource card — it has no spot in the body text.
-    const hasResourceItem = result.slides.some(
-      (s) => s.type === "content" && s.items.some((i) => i.kind === "resource"),
-    );
-    expect(hasResourceItem).toBe(false);
-  });
-
-  it("reports a saved page's unmatched Resources-block file the same way as any other unmatched resource", () => {
-    const savedPageHTML =
-      `<li class="ResourceModuleBody__card___Ab1"><div class="ResourceModuleBody__name___Ab1">` +
-      `Missing file.pdf</div></li>`;
-
-    const result = buildGenerationInput({
-      presentationName: "Test",
-      lessonHTML: savedPageHTML,
-      resources: resourceMap({}),
-    });
-
-    expect(result.unmatchedResources).toEqual(["Missing file.pdf"]);
-    expect(result.extraResources).toEqual([]);
-  });
 });

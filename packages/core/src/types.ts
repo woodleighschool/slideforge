@@ -2,8 +2,6 @@
 // package stays framework-free: it has no React/UI dependency, only DOM and
 // Web APIs available in any browser tab.
 
-import type { BundledResource } from "./bundleResources.js";
-
 export type BracketTag =
   | {
       type: "image";
@@ -86,10 +84,6 @@ export interface GenerationInput {
   slides: GenSlide[];
   unmatchedImages: string[];
   unmatchedResources: string[];
-  /** Files matched from the lesson's own "Resources" section (see
-   * seqtaResourceCards.ts) rather than a `[[resource:...]]` tag in the
-   * body — bundled alongside the deck with no slide card of their own. */
-  extraResources: BundledResource[];
 }
 
 export interface Theme {

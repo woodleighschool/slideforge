@@ -91,12 +91,50 @@ function ResourceStatus({ status }: { status: Builder["resourceStatus"] }) {
   );
 }
 
+function SavedPageStatus({ status }: { status: Builder["savedPageStatus"] }) {
+  if (status.kind === "idle") return null;
+
+  if (status.kind === "reading") {
+    return (
+      <Alert aria-live="polite">
+        <Spinner />
+        <AlertTitle>Reading the saved page</AlertTitle>
+      </Alert>
+    );
+  }
+
+  if (status.kind === "error") {
+    return (
+      <Alert variant="destructive" aria-live="assertive">
+        <XCircleIcon />
+        <AlertTitle>Couldn't find those files</AlertTitle>
+        <AlertDescription>{status.message}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <Alert variant="success" aria-live="polite">
+      <CheckCircle2Icon />
+      <AlertTitle>
+        {status.matchedCount} file{status.matchedCount === 1 ? "" : "s"} downloaded as a folder
+      </AlertTitle>
+      {status.unmatchedFilenames.length > 0 && (
+        <AlertDescription>
+          {status.unmatchedFilenames.length} file{status.unmatchedFilenames.length === 1 ? "" : "s"}{" "}
+          weren't found in your loaded resources: {status.unmatchedFilenames.join(", ")}
+        </AlertDescription>
+      )}
+    </Alert>
+  );
+}
+
 export function BuildPanel({ builder }: { builder: Builder }) {
   const zipInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
-  const lessonFileInputRef = useRef<HTMLInputElement>(null);
+  const savedPageInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [lessonDragOver, setLessonDragOver] = useState(false);
+  const [savedPageDragOver, setSavedPageDragOver] = useState(false);
 
   return (
     <Card>
@@ -222,6 +260,52 @@ export function BuildPanel({ builder }: { builder: Builder }) {
                 </AlertDescription>
               </Alert>
             )}
+
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              a lesson's Resources section won't copy cleanly?
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                "h-auto w-full flex-col border-dashed py-6 text-center text-muted-foreground",
+                savedPageDragOver && "border-primary bg-primary/5 text-foreground",
+              )}
+              onClick={() => savedPageInputRef.current?.click()}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setSavedPageDragOver(true);
+              }}
+              onDragLeave={() => setSavedPageDragOver(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setSavedPageDragOver(false);
+                const file = event.dataTransfer.files[0];
+                if (file) void builder.matchSavedPageFile(file);
+              }}
+            >
+              <FileCode2Icon />
+              <span>
+                Save that lesson page instead (Cmd+S in Chrome, "Webpage, HTML only"), then{" "}
+                <strong className="font-medium text-foreground">choose it</strong> or drag it here —
+                we'll pull out just its files and download them as a folder.
+              </span>
+            </Button>
+            <input
+              ref={savedPageInputRef}
+              type="file"
+              accept=".html,.htm,text/html"
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void builder.matchSavedPageFile(file);
+                event.target.value = "";
+              }}
+            />
+            <SavedPageStatus status={builder.savedPageStatus} />
           </Field>
 
           <Field>
@@ -233,64 +317,21 @@ export function BuildPanel({ builder }: { builder: Builder }) {
             <Textarea
               id="lesson-html"
               aria-label="Lesson HTML"
-              placeholder="Paste the raw lesson HTML here, or drop a saved lesson page (.html) onto this box…"
-              className={cn(
-                "min-h-32 font-mono text-xs",
-                lessonDragOver && "border-primary ring-3 ring-ring/50",
-              )}
+              placeholder="Paste the raw lesson HTML here…"
+              className="min-h-32 font-mono text-xs"
               value={builder.lessonHTML}
               onChange={(event) => builder.setLessonHTML(event.target.value)}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setLessonDragOver(true);
-              }}
-              onDragLeave={() => setLessonDragOver(false)}
-              onDrop={(event) => {
-                event.preventDefault();
-                setLessonDragOver(false);
-                const file = event.dataTransfer.files[0];
-                if (file) void builder.handleLessonHTMLFile(file);
-              }}
             />
-            <FieldDescription>
-              If the Resources list won't copy across cleanly, save the whole lesson page instead
-              (Cmd+S in Chrome, "Webpage, HTML only") and drop or upload that file here — SlideForge
-              will still find the files by their exact names.
-            </FieldDescription>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="self-start"
-                disabled={!builder.lessonHTML.trim()}
-                onClick={builder.openPreview}
-              >
-                <SearchIcon data-icon="inline-start" />
-                Preview parsed content
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="self-start"
-                onClick={() => lessonFileInputRef.current?.click()}
-              >
-                <FileCode2Icon data-icon="inline-start" />
-                Upload a saved lesson page
-              </Button>
-            </div>
-            <input
-              ref={lessonFileInputRef}
-              type="file"
-              accept=".html,.htm,text/html"
-              className="sr-only"
-              tabIndex={-1}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void builder.handleLessonHTMLFile(file);
-                event.target.value = "";
-              }}
-            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-start"
+              disabled={!builder.lessonHTML.trim()}
+              onClick={builder.openPreview}
+            >
+              <SearchIcon data-icon="inline-start" />
+              Preview parsed content
+            </Button>
           </Field>
 
           <FieldSet>

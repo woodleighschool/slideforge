@@ -616,12 +616,7 @@ function downloadBytes(bytes: ArrayBuffer, fileName: string, mimeType: string): 
 
 const PPTX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
-/** Resolves once the browser download has been triggered. `data.extraResources`
- * are resources buildGenerationInput found in the lesson's own "Resources"
- * section (see seqtaResourceCards.ts) rather than from a `[[resource:...]]`
- * tag in the lesson body — they have no card on any slide, but still need
- * to travel with the deck, so they ride along in the same Resources/
- * bundle as any auto-matched one. */
+/** Resolves once the browser download has been triggered. */
 export async function generatePptx(
   data: GenerationInput,
   theme: Partial<Theme> = {},
@@ -633,7 +628,7 @@ export async function generatePptx(
   pptx.layout = "SLIDEFORGE_16x9";
 
   const pendingEmbeds: PendingOleEmbed[] = [];
-  const pendingBundled: BundledResource[] = [...data.extraResources];
+  const pendingBundled: BundledResource[] = [];
   let slideNumber = 0;
 
   for (const slide of data.slides) {

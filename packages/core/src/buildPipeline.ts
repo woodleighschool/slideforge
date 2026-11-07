@@ -1,10 +1,8 @@
 // Orchestrates the full HTML -> pptx pipeline: parse -> assemble -> match
 // resources -> hand off to generatePptx.
 
-import type { BundledResource } from "./bundleResources.js";
 import { parseLessonHTML } from "./lessonHTMLParser.js";
 import { matchResource } from "./resourceMatcher.js";
-import { extractResourceCardFilenames } from "./seqtaResourceCards.js";
 import { assembleSlides } from "./slideAssembler.js";
 import type { GenerationInput, GenItem, GenSlide, ResourceMap } from "./types.js";
 
@@ -24,13 +22,6 @@ export function buildGenerationInput({
 
   const unmatchedImages: string[] = [];
   const unmatchedResources: string[] = [];
-  const extraResources: BundledResource[] = [];
-
-  for (const filename of extractResourceCardFilenames(lessonHTML)) {
-    const matched = matchResource(filename, resources);
-    if (matched) extraResources.push({ filename, dataUrl: matched.dataUrl });
-    else unmatchedResources.push(filename);
-  }
 
   const slides: GenSlide[] = assembled.map((slide) => {
     if (slide.type === "video") {
@@ -77,6 +68,5 @@ export function buildGenerationInput({
     slides,
     unmatchedImages,
     unmatchedResources,
-    extraResources,
   };
 }
