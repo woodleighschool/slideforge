@@ -2,7 +2,11 @@ import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
 import { describe, expect, it } from "vitest";
 
-import { addContentTitle, planContentPages } from "../src/generatePptx.js";
+import {
+  addContentTitle,
+  planContentPages,
+  resolveResourceDisposition,
+} from "../src/generatePptx.js";
 import type { GenItem, Theme } from "../src/types.js";
 
 function paragraph(length: number): GenItem {
@@ -184,5 +188,54 @@ describe("addContentTitle", () => {
     expect((xml.match(/<p:sp>/g) ?? []).length).toBe(2);
     expect(xml).toContain("Line One");
     expect(xml).toContain("Line Two Line Three");
+  });
+});
+
+describe("resolveResourceDisposition", () => {
+  it("embeds a docx resource — a kind proven to actually open on double-click", () => {
+    const result = resolveResourceDisposition({
+      filename: "handout.docx",
+      dataUrl: "data:application/octet-stream;base64,AAAA",
+    });
+    expect(result.kind).toBe("embed");
+    expect(result.kind === "embed" && result.embeddableKind.progId).toBe("Word.Document.12");
+  });
+
+  it("embeds an xlsx resource the same way", () => {
+    const result = resolveResourceDisposition({
+      filename: "data.xlsx",
+      dataUrl: "data:application/octet-stream;base64,AAAA",
+    });
+    expect(result.kind).toBe("embed");
+    expect(result.kind === "embed" && result.embeddableKind.progId).toBe("Excel.Sheet.12");
+  });
+
+  it("bundles a pptx resource instead of embedding it — Mac PowerPoint can't activate that embed", () => {
+    const result = resolveResourceDisposition({
+      filename: "slides.pptx",
+      dataUrl: "data:application/octet-stream;base64,AAAA",
+    });
+    expect(result.kind).toBe("bundle");
+  });
+
+  it("bundles a PDF resource — PDFs were never an OOXML package to begin with", () => {
+    const result = resolveResourceDisposition({
+      filename: "worksheet.pdf",
+      dataUrl: "data:application/pdf;base64,AAAA",
+    });
+    expect(result.kind).toBe("bundle");
+  });
+
+  it("bundles a file type outside the embeddable family in general", () => {
+    const result = resolveResourceDisposition({
+      filename: "notes.txt",
+      dataUrl: "data:text/plain;base64,AAAA",
+    });
+    expect(result.kind).toBe("bundle");
+  });
+
+  it("reports a missing resource regardless of file type", () => {
+    const result = resolveResourceDisposition({ filename: "worksheet.pdf", dataUrl: null });
+    expect(result.kind).toBe("missing");
   });
 });

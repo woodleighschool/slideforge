@@ -1,9 +1,13 @@
 export { isPureTagContent, splitIntoRuns } from "./bracketTagParser.js";
 export { buildGenerationInput } from "./buildPipeline.js";
+export type { BundledResource, ResourceBundle } from "./bundleResources.js";
+export { buildResourcesOnlyBundle } from "./bundleResources.js";
 export { importResourceFolder } from "./folderImport.js";
 export { blockMeta } from "./lessonBlock.js";
 export { parseLessonHTML } from "./lessonHTMLParser.js";
 export { matchResource } from "./resourceMatcher.js";
+export { matchSavedPageResources } from "./seqtaResourceCards.js";
+export type { SavedPageResourceMatches } from "./seqtaResourceCards.js";
 export { assembleSlides, emptyContentSlide } from "./slideAssembler.js";
 export * from "./types.js";
 export { importResourceZip } from "./zipImport.js";

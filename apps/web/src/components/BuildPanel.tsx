@@ -91,10 +91,50 @@ function ResourceStatus({ status }: { status: Builder["resourceStatus"] }) {
   );
 }
 
+function SavedPageStatus({ status }: { status: Builder["savedPageStatus"] }) {
+  if (status.kind === "idle") return null;
+
+  if (status.kind === "reading") {
+    return (
+      <Alert aria-live="polite">
+        <Spinner />
+        <AlertTitle>Reading the saved page</AlertTitle>
+      </Alert>
+    );
+  }
+
+  if (status.kind === "error") {
+    return (
+      <Alert variant="destructive" aria-live="assertive">
+        <XCircleIcon />
+        <AlertTitle>Couldn't find those files</AlertTitle>
+        <AlertDescription>{status.message}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <Alert variant="success" aria-live="polite">
+      <CheckCircle2Icon />
+      <AlertTitle>
+        {status.matchedCount} file{status.matchedCount === 1 ? "" : "s"} downloaded as a folder
+      </AlertTitle>
+      {status.unmatchedFilenames.length > 0 && (
+        <AlertDescription>
+          {status.unmatchedFilenames.length} file{status.unmatchedFilenames.length === 1 ? "" : "s"}{" "}
+          weren't found in your loaded resources: {status.unmatchedFilenames.join(", ")}
+        </AlertDescription>
+      )}
+    </Alert>
+  );
+}
+
 export function BuildPanel({ builder }: { builder: Builder }) {
   const zipInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const savedPageInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [savedPageDragOver, setSavedPageDragOver] = useState(false);
 
   return (
     <Card>
@@ -121,7 +161,7 @@ export function BuildPanel({ builder }: { builder: Builder }) {
             <StepHeading
               step={2}
               title="Resources"
-              description="Select the exported resources folder or ZIP linked from the lesson HTML"
+              description="Select your subject's resources folder or ZIP — the one with every lesson's files"
             />
             <Button
               type="button"
@@ -225,9 +265,11 @@ export function BuildPanel({ builder }: { builder: Builder }) {
           <Field>
             <StepHeading
               step={3}
-              title="Paste lesson HTML"
-              description="Paste the lesson HTML you copied from Seqta"
+              title="Lesson content"
+              description="Give SlideForge the lesson, whichever way you have it"
             />
+
+            <p className="text-sm font-semibold">Paste Seqta HTML here</p>
             <Textarea
               id="lesson-html"
               aria-label="Lesson HTML"
@@ -246,6 +288,59 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               <SearchIcon data-icon="inline-start" />
               Preview parsed content
             </Button>
+
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <p className="text-sm font-semibold">Upload HTML file saved from your browser</p>
+            <FieldDescription>
+              Use this when a lesson's Resources section won't paste in cleanly above. To save just
+              this lesson's page, open it, press Cmd+S in Chrome (choose "Webpage, HTML only"), then
+              upload the saved file here — we'll pull out its files and download them as a folder.
+              This does not build a presentation.
+            </FieldDescription>
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                "h-auto w-full flex-col whitespace-normal border-dashed py-4 text-center text-muted-foreground",
+                savedPageDragOver && "border-primary bg-primary/5 text-foreground",
+              )}
+              onClick={() => savedPageInputRef.current?.click()}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setSavedPageDragOver(true);
+              }}
+              onDragLeave={() => setSavedPageDragOver(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setSavedPageDragOver(false);
+                const file = event.dataTransfer.files[0];
+                if (file) void builder.matchSavedPageFile(file);
+              }}
+            >
+              <FileCode2Icon />
+              <span>
+                <strong className="font-medium text-foreground">Choose a file</strong> or drag and
+                drop the saved lesson page
+              </span>
+            </Button>
+            <input
+              ref={savedPageInputRef}
+              type="file"
+              accept=".html,.htm,text/html"
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void builder.matchSavedPageFile(file);
+                event.target.value = "";
+              }}
+            />
+            <SavedPageStatus status={builder.savedPageStatus} />
           </Field>
 
           <FieldSet>

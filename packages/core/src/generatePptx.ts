@@ -8,10 +8,31 @@
 
 import PptxGenJS from "pptxgenjs";
 
+import { buildResourceBundle } from "./bundleResources.js";
+import type { BundledResource } from "./bundleResources.js";
 import { embedOleObjects, resolveEmbeddableKind } from "./oleEmbed.js";
-import type { PendingOleEmbed } from "./oleEmbed.js";
+import type { EmbeddableKind, PendingOleEmbed } from "./oleEmbed.js";
 import { RESOURCE_ICON_PNG_BASE64 } from "./resourceIcon.js";
 import type { GenerationInput, GenItem, GenResource, GenSlide, TextRun, Theme } from "./types.js";
+
+/** What a resource card does with a given resource: embed it (and which
+ * kind — see oleEmbed.ts for which file types actually open on double-click
+ * once embedded), bundle it alongside the presentation instead (anything
+ * else with real bytes — a PDF, a pptx/pptm, an unrecognised type), or show
+ * the plain "missing" error card (no bytes at all). A pure function of the
+ * filename and whether bytes are present, so the page-flow height pass and
+ * the render pass always agree without needing to share any precomputed
+ * state between them. */
+export type ResourceDisposition =
+  | { kind: "embed"; embeddableKind: EmbeddableKind }
+  | { kind: "bundle" }
+  | { kind: "missing" };
+
+export function resolveResourceDisposition(resource: GenResource): ResourceDisposition {
+  if (!resource.dataUrl) return { kind: "missing" };
+  const embeddableKind = resolveEmbeddableKind(resource.filename);
+  return embeddableKind ? { kind: "embed", embeddableKind } : { kind: "bundle" };
+}
 
 // pptxgenjs's shipped types don't model every option shape used below
 // (fill/line objects, the hyperlink run option, percentage-string
@@ -89,7 +110,7 @@ const CONTENT_BOTTOM = SLIDE_H - 0.5;
 const RESOURCE_ICON_W = 0.7;
 const RESOURCE_ICON_H = 0.875; // matches the icon asset's 240:300 aspect ratio
 const RESOURCE_ROW_HEIGHT = 1.1;
-const RESOURCE_CARD_HEIGHT = 0.8; // the plain text-card fallback, unchanged from before
+const RESOURCE_CARD_HEIGHT = 0.8; // the plain error card for a genuinely missing resource
 
 function estimateParagraphHeight(text: string, textW: number): number {
   const charsPerLine = Math.max(10, Math.floor(textW / CHAR_WIDTH_IN));
@@ -155,8 +176,11 @@ async function buildFlowBlocks(items: GenItem[]): Promise<FlowBlock[]> {
     } else if (item.kind === "table") {
       flowBlocks.push({ kind: "table", data: item.table, height: estimateTableHeight(item.table) });
     } else if (item.kind === "resource") {
-      const embeddable = item.resource.dataUrl && resolveEmbeddableKind(item.resource.filename);
-      const height = embeddable ? RESOURCE_ROW_HEIGHT : RESOURCE_CARD_HEIGHT;
+      // An icon + two-line caption either way (embedded-and-clickable, or
+      // bundled alongside the file) — only a genuinely missing resource gets
+      // the shorter plain-text error card instead.
+      const disposition = resolveResourceDisposition(item.resource);
+      const height = disposition.kind === "missing" ? RESOURCE_CARD_HEIGHT : RESOURCE_ROW_HEIGHT;
       flowBlocks.push({ kind: "resource", data: item.resource, height });
     } else if ("images" in item) {
       const boxes = await Promise.all(item.images.map((i) => estimateImageBox(i.image)));
@@ -299,6 +323,7 @@ async function addContentSlide(
   slide: Extract<GenSlide, { type: "content" }>,
   startSlideNumber: number,
   pendingEmbeds: PendingOleEmbed[],
+  pendingBundled: BundledResource[],
 ): Promise<number> {
   const textW = TEXT_W;
   const pages = await planContentPages(slide.items);
@@ -398,9 +423,9 @@ async function addContentSlide(
       } else if (block.kind === "resource") {
         flushParagraphBuffer();
         const resource = block.data;
-        const embeddableKind = resource.dataUrl ? resolveEmbeddableKind(resource.filename) : null;
+        const disposition = resolveResourceDisposition(resource);
 
-        if (resource.dataUrl && embeddableKind) {
+        if (disposition.kind === "embed" && resource.dataUrl) {
           // The visible icon + caption are rendered normally here; the
           // actual OLE embedding (what makes double-clicking it open the
           // real file) is patched into the .pptx afterwards in generatePptx().
@@ -431,26 +456,43 @@ async function addContentSlide(
             slideNumber,
             filename: resource.filename,
             dataUrl: resource.dataUrl,
-            kind: embeddableKind,
+            kind: disposition.embeddableKind,
             x: 0.5,
             y: textY,
             w: RESOURCE_ICON_W,
             h: RESOURCE_ICON_H,
           });
-        } else if (resource.dataUrl) {
-          currentSlide.addText(`Attached resource\n${resource.filename}`, {
+        } else if (disposition.kind === "bundle" && resource.dataUrl) {
+          // Not a kind that reliably opens on double-click once embedded (a
+          // PDF, or a pptx/pptm — see oleEmbed.ts) — bundled alongside the
+          // presentation instead of faking an embed that wouldn't activate.
+          currentSlide.addImage({
+            data: `data:image/png;base64,${RESOURCE_ICON_PNG_BASE64}`,
             x: 0.5,
             y: textY,
-            w: 4,
-            h: RESOURCE_CARD_HEIGHT,
-            fontSize: 12,
-            color: theme.navy,
-            fontFace: "Arial",
-            fill: { color: "FFFFFF" },
-            line: { color: theme.border, width: 1 },
-            align: "center",
-            valign: "middle",
-          } as never);
+            w: RESOURCE_ICON_W,
+            h: RESOURCE_ICON_H,
+          });
+          currentSlide.addText(
+            [
+              { text: resource.filename, options: { bold: true, breakLine: true } },
+              {
+                text: "In the Resources folder with this presentation",
+                options: { italic: true, color: "666666" },
+              },
+            ] as never,
+            {
+              x: 1.35,
+              y: textY,
+              w: textW - 0.85,
+              h: RESOURCE_ICON_H,
+              fontSize: 12,
+              color: theme.navy,
+              fontFace: "Arial",
+              valign: "middle",
+            } as never,
+          );
+          pendingBundled.push({ filename: resource.filename, dataUrl: resource.dataUrl });
         } else {
           currentSlide.addText(`Missing resource: ${resource.filename} — attach manually`, {
             x: 0.5,
@@ -556,13 +598,12 @@ function addVideoSlide(
   });
 }
 
-/** Triggers a normal browser download for pptx bytes we've already got in
+/** Triggers a normal browser download for bytes we've already got in
  * memory — the same mechanism pptx.writeFile() uses internally, needed here
- * because writing the OLE-patched bytes bypasses that helper. */
-function downloadPptx(bytes: ArrayBuffer, fileName: string): void {
-  const blob = new Blob([bytes], {
-    type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  });
+ * because writing the OLE-patched or zip-bundled bytes bypasses that
+ * helper. */
+function downloadBytes(bytes: ArrayBuffer, fileName: string, mimeType: string): void {
+  const blob = new Blob([bytes], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -572,6 +613,8 @@ function downloadPptx(bytes: ArrayBuffer, fileName: string): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+const PPTX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
 /** Resolves once the browser download has been triggered. */
 export async function generatePptx(
@@ -585,6 +628,7 @@ export async function generatePptx(
   pptx.layout = "SLIDEFORGE_16x9";
 
   const pendingEmbeds: PendingOleEmbed[] = [];
+  const pendingBundled: BundledResource[] = [];
   let slideNumber = 0;
 
   for (const slide of data.slides) {
@@ -592,18 +636,34 @@ export async function generatePptx(
       slideNumber += 1;
       addVideoSlide(pptx, resolvedTheme, slide);
     } else {
-      slideNumber = await addContentSlide(pptx, resolvedTheme, slide, slideNumber, pendingEmbeds);
+      slideNumber = await addContentSlide(
+        pptx,
+        resolvedTheme,
+        slide,
+        slideNumber,
+        pendingEmbeds,
+        pendingBundled,
+      );
     }
   }
 
-  const fileName = `${data.outputName || "Presentation"}.pptx`;
+  const outputName = data.outputName || "Presentation";
+  const fileName = `${outputName}.pptx`;
 
-  if (pendingEmbeds.length === 0) {
+  if (pendingEmbeds.length === 0 && pendingBundled.length === 0) {
     await pptx.writeFile({ fileName });
     return;
   }
 
   const rawBytes = (await pptx.write({ outputType: "arraybuffer" })) as ArrayBuffer;
-  const patchedBytes = await embedOleObjects(rawBytes, pendingEmbeds);
-  downloadPptx(patchedBytes, fileName);
+  const patchedBytes =
+    pendingEmbeds.length > 0 ? await embedOleObjects(rawBytes, pendingEmbeds) : rawBytes;
+
+  if (pendingBundled.length === 0) {
+    downloadBytes(patchedBytes, fileName, PPTX_MIME_TYPE);
+    return;
+  }
+
+  const bundle = await buildResourceBundle(patchedBytes, outputName, pendingBundled);
+  downloadBytes(bundle.bytes, bundle.fileName, "application/zip");
 }
