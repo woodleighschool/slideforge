@@ -23,14 +23,19 @@
 // - [class*="ResourceModuleBody"]: a Resources block -> one resourceCard per
 //   [class*="ResourceModuleBody__name"] entry (same filenames
 //   seqtaResourceCards.ts already reads off the same markup).
-// - [class*="LegacyModuleBody"] (CKEditor/iframe content): Chrome's save
-//   only ever captures these as separate files, in a folder teachers won't
-//   realistically have on hand alongside the course's resources export, so
-//   there is no reliable way to recover their content from a saved page.
-//   Rather than show nothing at all (and silently lose the section's place
-//   in the lesson) or invent wording for what used to be there, this
-//   becomes a single empty paragraph: a wordless placeholder that holds the
-//   gap's position in reading order without claiming to explain it.
+// - [class*="LegacyModuleBody"] (CKEditor/iframe content): the section's
+//   actual content lives in a separate file Chrome saves alongside the main
+//   page, in a "<page>_files" companion folder — never inline in the single
+//   .html a teacher uploads. When that folder's contents are supplied too
+//   (`companionFiles`), the module's own <iframe src="..."> names exactly
+//   which file to read, and that file turns out to be plain CKEditor output
+//   (headings/paragraphs/links, plus <img data-macro="Image"|"Resource">
+//   for anything inserted — see lessonHTMLParser.ts), so it goes through the
+//   very same parseLessonHTML() used for the generic fallback below. When
+//   the companion folder wasn't supplied, or didn't include this particular
+//   file, this becomes a single empty paragraph instead: a wordless
+//   placeholder that holds the gap's position in reading order without
+//   claiming to explain it.
 // - Anything else (Math, layout/multi-column wrappers, and any module type
 //   not seen yet) is "low usage" per the lesson's own structure: recurse
 //   into any modules nested inside it (a layout module commonly wraps a
@@ -52,12 +57,21 @@ const MODULE_TYPE_LABEL_SELECTOR = '[data-testid="module-type-label"]';
 const TOOLBAR_SELECTOR = '[class*="Toolbar__Toolbar"]';
 const MODULE_BODY_SELECTOR = '[class*="ModuleBody"]';
 
-export function extractLessonBlocksFromSavedPage(html: string): LessonBlock[] {
+/** A saved page's companion "<page>_files" folder, as filename -> that
+ * file's text content. Only the small saved_resource*.html files inside it
+ * matter here — the folder also holds megabytes of Seqta's own JS/CSS the
+ * caller should never need to read, let alone hand to this function. */
+export type CompanionFileMap = ReadonlyMap<string, string>;
+
+export function extractLessonBlocksFromSavedPage(
+  html: string,
+  companionFiles?: CompanionFileMap,
+): LessonBlock[] {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const root = doc.querySelector(ROOT_SELECTOR);
   if (!root) return [];
 
-  return directChildModules(root).flatMap(blocksForModule);
+  return directChildModules(root).flatMap((wrapper) => blocksForModule(wrapper, companionFiles));
 }
 
 /** Every [class*="Module__wrapper"] inside `container`, excluding ones
@@ -95,15 +109,17 @@ function stripNoise(element: Element): Element {
   return clone;
 }
 
-function blocksForModule(wrapper: Element): LessonBlock[] {
+function blocksForModule(wrapper: Element, companionFiles?: CompanionFileMap): LessonBlock[] {
   const bodyClass = ownModuleBodyClass(wrapper);
 
   if (bodyClass.includes("TitleModuleBody")) return titleBlocks(wrapper);
   if (bodyClass.includes("ResourceModuleBody")) return resourceBlocks(wrapper);
-  if (bodyClass.includes("LegacyModuleBody")) return legacyPlaceholderBlocks();
+  if (bodyClass.includes("LegacyModuleBody")) return legacyBlocks(wrapper, companionFiles);
 
   const nested = directChildModules(wrapper);
-  if (nested.length > 0) return nested.flatMap(blocksForModule);
+  if (nested.length > 0) {
+    return nested.flatMap((child) => blocksForModule(child, companionFiles));
+  }
 
   return genericBlocks(wrapper);
 }
@@ -127,6 +143,31 @@ function resourceBlocks(wrapper: Element): LessonBlock[] {
     type: "resourceCard",
     filename,
   }));
+}
+
+function legacyBlocks(wrapper: Element, companionFiles?: CompanionFileMap): LessonBlock[] {
+  const companionHTML = companionFiles && findCompanionFile(wrapper, companionFiles);
+  if (companionHTML) {
+    const blocks = parseLessonHTML(companionHTML);
+    if (blocks.length > 0) return blocks;
+  }
+  return legacyPlaceholderBlocks();
+}
+
+/** The module's own <iframe src="./<page>_files/saved_resource(N).html">
+ * names exactly which companion file holds its real content — read the
+ * basename off that src and look it up directly, rather than guessing at a
+ * naming convention ourselves. */
+function findCompanionFile(wrapper: Element, companionFiles: CompanionFileMap): string | undefined {
+  const src = wrapper.querySelector("iframe")?.getAttribute("src");
+  if (!src) return undefined;
+
+  const basename = src.split("/").pop() || "";
+  try {
+    return companionFiles.get(decodeURIComponent(basename)) ?? companionFiles.get(basename);
+  } catch {
+    return companionFiles.get(basename);
+  }
 }
 
 function legacyPlaceholderBlocks(): LessonBlock[] {

@@ -10,6 +10,14 @@
 // along the nearest enclosing <a href> so loose links outside a <p> still
 // work. A <br> outside any recognized block is treated as a paragraph
 // boundary, same as hitting a block tag.
+//
+// An <img data-macro="Image"|"Resource" data-name="..."> is CKEditor's own
+// on-page representation of exactly what a [[image:...]]/[[resource:...]]
+// bracket tag means in pasted text — Seqta's Legacy editor (seqtaSavedPage-
+// Modules.ts reads its saved content through this same parser) renders them
+// this way, real filename included, rather than as bracket-tag text. An
+// <img> with no recognized data-macro is left alone, same as before this
+// was added.
 
 import { splitIntoRuns } from "./bracketTagParser.js";
 import type { BracketTag, LessonBlock, TextRun } from "./types.js";
@@ -67,6 +75,14 @@ export function parseLessonHTML(rawHTML: string): LessonBlock[] {
           // <p> — treat it as a boundary, same as hitting a block tag.
           flushPendingSegments();
           break;
+        case "img": {
+          const block = lessonBlockForMacroImage(element);
+          if (block) {
+            flushPendingSegments();
+            blocks.push(block);
+          }
+          break;
+        }
         case "a": {
           const candidate = element.getAttribute("href") || "";
           const linkHref = candidate ? candidate : href;
@@ -118,21 +134,54 @@ function parseHeading(element: Element): LessonBlock[] {
   return result;
 }
 
+/** A paragraph's content in document order: either plain/linked text, or an
+ * already-built block (currently only a macro image) that splits the
+ * paragraph's text runs around it, the same way a bracket tag does in
+ * buildParagraphBlocks below. */
+type ParagraphEntry =
+  | { kind: "segment"; text: string; url: string | null }
+  | { kind: "block"; block: LessonBlock };
+
 function parseParagraph(element: Element): LessonBlock[] {
-  return buildParagraphBlocks(extractTextSegments(element));
+  const entries = extractParagraphEntries(element);
+  const result: LessonBlock[] = [];
+  let pending: TextSegment[] = [];
+
+  function flushPending() {
+    if (pending.length === 0) return;
+    result.push(...buildParagraphBlocks(pending));
+    pending = [];
+  }
+
+  for (const entry of entries) {
+    if (entry.kind === "segment") {
+      pending.push({ text: entry.text, url: entry.url });
+    } else {
+      flushPending();
+      result.push(entry.block);
+    }
+  }
+  flushPending();
+  return result;
 }
 
 /** Walks an element's descendants in document order, pairing each text node
- * with the URL of the nearest enclosing `<a href="...">` (null if none). */
-function extractTextSegments(element: Element): TextSegment[] {
-  const segments: TextSegment[] = [];
+ * with the URL of the nearest enclosing `<a href="...">` (null if none), and
+ * splicing in a block entry wherever a recognized macro image sits. */
+function extractParagraphEntries(element: Element): ParagraphEntry[] {
+  const entries: ParagraphEntry[] = [];
 
   function walk(node: ChildNode, href: string | null) {
     if (node.nodeType === Node.TEXT_NODE) {
       const raw = node.textContent || "";
-      if (raw) segments.push({ text: raw, url: href });
+      if (raw) entries.push({ kind: "segment", text: raw, url: href });
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as Element;
+      if (el.tagName.toLowerCase() === "img") {
+        const block = lessonBlockForMacroImage(el);
+        if (block) entries.push({ kind: "block", block });
+        return;
+      }
       let childHref = href;
       if (el.tagName.toLowerCase() === "a") {
         const candidate = el.getAttribute("href");
@@ -147,7 +196,7 @@ function extractTextSegments(element: Element): TextSegment[] {
   for (const child of Array.from(element.childNodes)) {
     walk(child, null);
   }
-  return segments;
+  return entries;
 }
 
 /** Turns (text, url) segments into blocks. Bracket tags ([[image:...]] etc.)
@@ -288,6 +337,32 @@ function lessonBlockForTag(tag: BracketTag): LessonBlock | null {
     default:
       return null;
   }
+}
+
+/** CKEditor's own on-page form of an image/resource macro — Seqta's Legacy
+ * editor stamps every inserted image or resource with `data-macro` and the
+ * real filename in `data-name`, which this reads directly rather than
+ * reconstructing it from bracket-tag text. `data-alignment`/`data-size` use
+ * the same "left"/"centre"/"right" and "small"/"medium"/"large" vocabulary
+ * bracket tags do — generatePptx.ts already falls back sensibly for any
+ * other value (e.g. CKEditor's own "original"), so these pass straight
+ * through with no translation needed. */
+function lessonBlockForMacroImage(element: Element): LessonBlock | null {
+  const macro = element.getAttribute("data-macro");
+  const filename = (element.getAttribute("data-name") || "").trim();
+  if (!filename) return null;
+
+  if (macro === "Resource") return { type: "resourceCard", filename };
+  if (macro === "Image") {
+    return {
+      type: "image",
+      filename,
+      position: element.getAttribute("data-alignment"),
+      size: element.getAttribute("data-size"),
+      extras: [],
+    };
+  }
+  return null;
 }
 
 /** Normalizes non-breaking space variants to a plain space, and trims outer

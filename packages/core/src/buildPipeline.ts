@@ -1,8 +1,9 @@
 // Orchestrates the full lesson -> pptx pipeline: extract blocks -> assemble
 // -> match resources -> hand off to generatePptx. The saved lesson page
 // (seqtaSavedPageModules.ts) is the only source of lesson content the app
-// uses; both entry points below share everything past block extraction.
+// uses.
 
+import type { CompanionFileMap } from "./seqtaSavedPageModules.js";
 import { extractLessonBlocksFromSavedPage } from "./seqtaSavedPageModules.js";
 import { matchResource } from "./resourceMatcher.js";
 import { assembleSlides } from "./slideAssembler.js";
@@ -11,15 +12,21 @@ import type { GenerationInput, GenItem, GenSlide, LessonBlock, ResourceMap } fro
 export interface BuildGenerationInputFromSavedPageArgs {
   presentationName: string;
   savedPageHTML: string;
+  /** The saved page's companion "<page>_files" folder, filename -> text
+   * content, if the teacher supplied it. Optional — recovers real Legacy
+   * editor content instead of a blank placeholder, but the build still
+   * works without it. */
+  companionFiles?: CompanionFileMap;
   resources: ResourceMap;
 }
 
 export function buildGenerationInputFromSavedPage({
   presentationName,
   savedPageHTML,
+  companionFiles,
   resources,
 }: BuildGenerationInputFromSavedPageArgs): GenerationInput {
-  const blocks = extractLessonBlocksFromSavedPage(savedPageHTML);
+  const blocks = extractLessonBlocksFromSavedPage(savedPageHTML, companionFiles);
   return assembleGenerationInput(presentationName, blocks, resources);
 }
 

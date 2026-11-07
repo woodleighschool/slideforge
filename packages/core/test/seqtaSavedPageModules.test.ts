@@ -53,11 +53,11 @@ function resourceModule(...filenames: string[]): string {
   );
 }
 
-function legacyModule(): string {
+function legacyModule(src = "./page_files/saved_resource.html"): string {
   return moduleShell(
     "Legacy editor",
     `<div class="uiFormattedTextWrapper LegacyModuleBody__LegacyModule___Bs9jF">` +
-      `<iframe class="cke_wysiwyg_frame cke_reset" src="./page_files/saved_resource.html"></iframe>` +
+      `<iframe class="cke_wysiwyg_frame cke_reset" src="${src}"></iframe>` +
       `</div>`,
   );
 }
@@ -162,5 +162,97 @@ describe("extractLessonBlocksFromSavedPage", () => {
     expect(extractLessonBlocksFromSavedPage(html)).toEqual([
       { type: "slideTitle", title: "Lesson heading" },
     ]);
+  });
+
+  describe("Legacy editor content, when the companion folder is supplied", () => {
+    // Synthetic stand-in for a real saved_resource.html — same shape (plain
+    // CKEditor body markup, a macro image/resource carrying the real
+    // filename) confirmed against a real companion folder during
+    // development.
+    function companionResource(bodyInnerHTML: string): string {
+      return `<html><body class="cke_editable">${bodyInnerHTML}</body></html>`;
+    }
+
+    it("replaces the placeholder with the real content read from the matching companion file", () => {
+      const html = page(rootModule(legacyModule("./page_files/saved_resource.html")));
+      const companionFiles = new Map([
+        [
+          "saved_resource.html",
+          companionResource(
+            '<h2>Check out the logos</h2><p>See <a href="https://example.test">this link</a>.</p>',
+          ),
+        ],
+      ]);
+
+      expect(extractLessonBlocksFromSavedPage(html, companionFiles)).toEqual([
+        { type: "slideTitle", title: "Check out the logos" },
+        {
+          type: "paragraphText",
+          runs: [
+            { kind: "plain", text: "See " },
+            { kind: "link", text: "this link", url: "https://example.test" },
+            { kind: "plain", text: "." },
+          ],
+        },
+      ]);
+    });
+
+    it("reads a macro image inside the companion file as a real resourceCard/image, not a bracket tag", () => {
+      const html = page(rootModule(legacyModule("./page_files/saved_resource.html")));
+      const companionFiles = new Map([
+        [
+          "saved_resource.html",
+          companionResource(
+            '<p><img data-macro="Image" data-name="diagram.png" data-alignment="centre" data-size="large"></p>' +
+              '<p><img data-macro="Resource" data-name="Handout notes.pdf"></p>',
+          ),
+        ],
+      ]);
+
+      expect(extractLessonBlocksFromSavedPage(html, companionFiles)).toEqual([
+        { type: "image", filename: "diagram.png", position: "centre", size: "large", extras: [] },
+        { type: "resourceCard", filename: "Handout notes.pdf" },
+      ]);
+    });
+
+    it("resolves each Legacy module against its own iframe src, not just the first companion file", () => {
+      const html = page(
+        rootModule(
+          legacyModule("./page_files/saved_resource.html"),
+          titleModule("Lesson heading"),
+          legacyModule("./page_files/saved_resource(1).html"),
+        ),
+      );
+      const companionFiles = new Map([
+        ["saved_resource.html", companionResource("<p>First section.</p>")],
+        ["saved_resource(1).html", companionResource("<p>Second section.</p>")],
+      ]);
+
+      expect(extractLessonBlocksFromSavedPage(html, companionFiles)).toEqual([
+        { type: "paragraphText", runs: [{ kind: "plain", text: "First section." }] },
+        { type: "slideTitle", title: "Lesson heading" },
+        { type: "paragraphText", runs: [{ kind: "plain", text: "Second section." }] },
+      ]);
+    });
+
+    it("falls back to the wordless placeholder when this module's own file is missing from the folder", () => {
+      const html = page(rootModule(legacyModule("./page_files/saved_resource(3).html")));
+      const companionFiles = new Map([
+        ["saved_resource.html", companionResource("<p>Wrong file.</p>")],
+      ]);
+
+      expect(extractLessonBlocksFromSavedPage(html, companionFiles)).toEqual([
+        { type: "paragraphText", runs: [{ kind: "plain", text: "" }] },
+      ]);
+    });
+
+    it("falls back to the placeholder when the matching companion file parses to nothing", () => {
+      const html = page(rootModule(legacyModule("./page_files/saved_resource.html")));
+      const companionFiles = new Map([["saved_resource.html", companionResource("")]]);
+
+      expect(extractLessonBlocksFromSavedPage(html, companionFiles)).toEqual([
+        { type: "paragraphText", runs: [{ kind: "plain", text: "" }] },
+      ]);
+    });
   });
 });

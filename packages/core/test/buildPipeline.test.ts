@@ -104,6 +104,43 @@ describe("parseLessonHTML", () => {
     );
     expect(paragraph).toBeDefined();
   });
+
+  // CKEditor's own on-page form of a bracket tag — this is how Seqta's
+  // Legacy editor actually renders an inserted image/resource, real
+  // filename included, in a saved page's companion files.
+  it("reads a macro image inside a paragraph as a resourceCard, splitting the surrounding text", () => {
+    const blocks = parseLessonHTML(
+      '<p>Before <img data-macro="Resource" data-name="Handout notes.pdf"> after.</p>',
+    );
+
+    expect(blocks).toEqual([
+      { type: "paragraphText", runs: [{ kind: "plain", text: "Before" }] },
+      { type: "resourceCard", filename: "Handout notes.pdf" },
+      { type: "paragraphText", runs: [{ kind: "plain", text: "after." }] },
+    ]);
+  });
+
+  it("reads a macro image at the top level as an image block, carrying its real alignment/size", () => {
+    const blocks = parseLessonHTML(
+      '<img data-macro="Image" data-name="diagram.png" data-alignment="centre" data-size="large">',
+    );
+
+    expect(blocks).toEqual([
+      { type: "image", filename: "diagram.png", position: "centre", size: "large", extras: [] },
+    ]);
+  });
+
+  it("ignores an <img> with no recognized data-macro, same as before macro images existed", () => {
+    const blocks = parseLessonHTML('<p>Photo: <img src="./get" alt="untagged"></p>');
+
+    expect(blocks).toEqual([{ type: "paragraphText", runs: [{ kind: "plain", text: "Photo:" }] }]);
+  });
+
+  it("ignores a macro image with no data-name to match against", () => {
+    const blocks = parseLessonHTML('<p><img data-macro="Resource"></p>');
+
+    expect(blocks).toEqual([]);
+  });
 });
 
 describe("buildGenerationInputFromSavedPage", () => {

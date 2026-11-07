@@ -7,6 +7,7 @@ export { parseLessonHTML } from "./lessonHTMLParser.js";
 export { matchResource } from "./resourceMatcher.js";
 export { extractResourceCardFilenames } from "./seqtaResourceCards.js";
 export { extractLessonBlocksFromSavedPage } from "./seqtaSavedPageModules.js";
+export type { CompanionFileMap } from "./seqtaSavedPageModules.js";
 export { assembleSlides, emptyContentSlide } from "./slideAssembler.js";
 export * from "./types.js";
 export { importResourceZip } from "./zipImport.js";

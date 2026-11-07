@@ -124,10 +124,45 @@ function SavedPageStatus({ status }: { status: Builder["savedPageStatus"] }) {
   );
 }
 
+function CompanionFolderStatus({ status }: { status: Builder["companionFolderStatus"] }) {
+  if (status.kind === "idle") return null;
+
+  if (status.kind === "reading") {
+    return (
+      <Alert aria-live="polite">
+        <Spinner />
+        <AlertTitle>Reading the folder</AlertTitle>
+      </Alert>
+    );
+  }
+
+  if (status.kind === "error") {
+    return (
+      <Alert variant="destructive" aria-live="assertive">
+        <XCircleIcon />
+        <AlertTitle>Couldn't read that folder</AlertTitle>
+        <AlertDescription>{status.message}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <Alert variant="success" aria-live="polite">
+      <CheckCircle2Icon />
+      <AlertTitle>Legacy section content ready</AlertTitle>
+      <AlertDescription>
+        Found {status.fileCount} saved section{status.fileCount === 1 ? "" : "s"} in{" "}
+        {status.folderName}.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export function BuildPanel({ builder }: { builder: Builder }) {
   const zipInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const savedPageInputRef = useRef<HTMLInputElement>(null);
+  const companionFolderInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [savedPageDragOver, setSavedPageDragOver] = useState(false);
 
@@ -307,6 +342,44 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               }}
             />
             <SavedPageStatus status={builder.savedPageStatus} />
+
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              optional
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <p className="text-sm font-semibold">Also add that page's "..._files" folder</p>
+            <FieldDescription>
+              Chrome saves this automatically, right next to the lesson page, every time you save it
+              — nothing extra to export. Add it too and any Legacy editor sections recover their
+              real text, images, and resources instead of appearing as a blank gap.
+            </FieldDescription>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto w-full flex-col whitespace-normal py-4 text-center text-muted-foreground"
+              onClick={() => companionFolderInputRef.current?.click()}
+            >
+              <FolderOpenIcon />
+              <span>Choose the "..._files" folder</span>
+            </Button>
+            <input
+              ref={companionFolderInputRef}
+              type="file"
+              webkitdirectory=""
+              directory=""
+              multiple
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(event) => {
+                const files = event.target.files;
+                if (files?.length) void builder.handleCompanionFolderFiles(files);
+                event.target.value = "";
+              }}
+            />
+            <CompanionFolderStatus status={builder.companionFolderStatus} />
+
             <Button
               variant="outline"
               size="sm"
