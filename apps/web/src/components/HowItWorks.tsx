@@ -77,8 +77,8 @@ export function HowItWorks({
         />
         <Row
           step={3}
-          title="Paste lesson HTML"
-          description="Paste the lesson HTML you copied"
+          title="Lesson content"
+          description="Paste Seqta HTML, or upload a saved page"
           trailing={
             hasHtml ? (
               <CheckIcon className="size-4 text-success" />
