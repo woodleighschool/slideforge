@@ -307,9 +307,12 @@ export function BuildPanel({ builder }: { builder: Builder }) {
             <FieldDescription>
               Open the lesson in Seqta's{" "}
               <strong className="font-medium text-foreground">editor</strong> view (not the
-              student/parent preview), then save the whole page: Cmd/Ctrl+S in Chrome, choosing
-              "Webpage, HTML only". Upload that file here — SlideForge reads the lesson's titles,
-              text, and resources straight out of it to build the presentation.
+              student/parent preview) using{" "}
+              <strong className="font-medium text-foreground">Chrome</strong>, then save the whole
+              page: Cmd/Ctrl+S, choosing "Webpage, HTML only". Upload that file here — SlideForge
+              reads the lesson's titles, text, and resources straight out of it to build the
+              presentation. This step needs Chrome specifically — Safari, Edge, and Firefox save
+              pages differently and won't give you a file SlideForge can read.
             </FieldDescription>
             <Button
               type="button"
@@ -362,8 +365,10 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               Chrome saves this automatically, right next to the lesson page, every time you save it
               — nothing extra to export. Add it too and any Legacy editor sections recover their
               real text, images, and resources instead of appearing as a blank gap. This only works
-              from the <strong className="font-medium text-foreground">editor</strong> view's save —
-              the student/parent preview's version is missing what's needed to match its images and
+              when the page was saved in{" "}
+              <strong className="font-medium text-foreground">Chrome</strong>, from the{" "}
+              <strong className="font-medium text-foreground">editor</strong> view — the
+              student/parent preview's version is missing what's needed to match its images and
               resources.
             </FieldDescription>
             <Button
