@@ -1,23 +1,40 @@
-// Orchestrates the full HTML -> pptx pipeline: parse -> assemble -> match
-// resources -> hand off to generatePptx.
+// Orchestrates the full lesson -> pptx pipeline: extract blocks -> assemble
+// -> match resources -> hand off to generatePptx. The saved lesson page
+// (seqtaSavedPageModules.ts) is the only source of lesson content the app
+// uses.
 
-import { parseLessonHTML } from "./lessonHTMLParser.js";
+import type { CompanionFileMap } from "./seqtaSavedPageModules.js";
+import { extractLessonBlocksFromSavedPage } from "./seqtaSavedPageModules.js";
 import { matchResource } from "./resourceMatcher.js";
 import { assembleSlides } from "./slideAssembler.js";
-import type { GenerationInput, GenItem, GenSlide, ResourceMap } from "./types.js";
+import type { GenerationInput, GenItem, GenSlide, LessonBlock, ResourceMap } from "./types.js";
 
-export interface BuildGenerationInputArgs {
+export interface BuildGenerationInputFromSavedPageArgs {
   presentationName: string;
-  lessonHTML: string;
+  savedPageHTML: string;
+  /** The saved page's companion "<page>_files" folder, filename -> text
+   * content, if the teacher supplied it. Optional — recovers real Legacy
+   * editor content instead of a blank placeholder, but the build still
+   * works without it. */
+  companionFiles?: CompanionFileMap;
   resources: ResourceMap;
 }
 
-export function buildGenerationInput({
+export function buildGenerationInputFromSavedPage({
   presentationName,
-  lessonHTML,
+  savedPageHTML,
+  companionFiles,
   resources,
-}: BuildGenerationInputArgs): GenerationInput {
-  const blocks = parseLessonHTML(lessonHTML);
+}: BuildGenerationInputFromSavedPageArgs): GenerationInput {
+  const blocks = extractLessonBlocksFromSavedPage(savedPageHTML, companionFiles);
+  return assembleGenerationInput(presentationName, blocks, resources);
+}
+
+function assembleGenerationInput(
+  presentationName: string,
+  blocks: LessonBlock[],
+  resources: ResourceMap,
+): GenerationInput {
   const assembled = assembleSlides(blocks);
 
   const unmatchedImages: string[] = [];

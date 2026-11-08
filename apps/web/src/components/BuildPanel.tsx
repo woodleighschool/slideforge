@@ -29,7 +29,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import type { Builder } from "@/lib/useBuilder";
 import { cn } from "@/lib/utils";
 
@@ -107,7 +106,7 @@ function SavedPageStatus({ status }: { status: Builder["savedPageStatus"] }) {
     return (
       <Alert variant="destructive" aria-live="assertive">
         <XCircleIcon />
-        <AlertTitle>Couldn't find those files</AlertTitle>
+        <AlertTitle>Couldn't read that page</AlertTitle>
         <AlertDescription>{status.message}</AlertDescription>
       </Alert>
     );
@@ -116,15 +115,45 @@ function SavedPageStatus({ status }: { status: Builder["savedPageStatus"] }) {
   return (
     <Alert variant="success" aria-live="polite">
       <CheckCircle2Icon />
-      <AlertTitle>
-        {status.matchedCount} file{status.matchedCount === 1 ? "" : "s"} downloaded as a folder
-      </AlertTitle>
-      {status.unmatchedFilenames.length > 0 && (
-        <AlertDescription>
-          {status.unmatchedFilenames.length} file{status.unmatchedFilenames.length === 1 ? "" : "s"}{" "}
-          weren't found in your loaded resources: {status.unmatchedFilenames.join(", ")}
-        </AlertDescription>
-      )}
+      <AlertTitle>{status.fileName} ready</AlertTitle>
+      <AlertDescription>
+        Found {status.blockCount} piece{status.blockCount === 1 ? "" : "s"} of lesson content.
+        Preview it below, or go ahead and forge.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function CompanionFolderStatus({ status }: { status: Builder["companionFolderStatus"] }) {
+  if (status.kind === "idle") return null;
+
+  if (status.kind === "reading") {
+    return (
+      <Alert aria-live="polite">
+        <Spinner />
+        <AlertTitle>Reading the folder</AlertTitle>
+      </Alert>
+    );
+  }
+
+  if (status.kind === "error") {
+    return (
+      <Alert variant="destructive" aria-live="assertive">
+        <XCircleIcon />
+        <AlertTitle>Couldn't read that folder</AlertTitle>
+        <AlertDescription>{status.message}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <Alert variant="success" aria-live="polite">
+      <CheckCircle2Icon />
+      <AlertTitle>Legacy section content ready</AlertTitle>
+      <AlertDescription>
+        Found {status.fileCount} saved section{status.fileCount === 1 ? "" : "s"} in{" "}
+        {status.folderName}.
+      </AlertDescription>
     </Alert>
   );
 }
@@ -133,6 +162,7 @@ export function BuildPanel({ builder }: { builder: Builder }) {
   const zipInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const savedPageInputRef = useRef<HTMLInputElement>(null);
+  const companionFolderInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [savedPageDragOver, setSavedPageDragOver] = useState(false);
 
@@ -163,6 +193,12 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               title="Resources"
               description="Select your subject's resources folder or ZIP — the one with every lesson's files"
             />
+            <FieldDescription>
+              The saved lesson page (step 3) only carries your resources' <em>file names</em>, not
+              the files themselves. This is where SlideForge gets the actual bytes — to embed your
+              images in the slides and attach your resource files. Skip it and the presentation
+              still builds, but images and resources show as placeholders instead of the real thing.
+            </FieldDescription>
             <Button
               type="button"
               variant="outline"
@@ -266,47 +302,23 @@ export function BuildPanel({ builder }: { builder: Builder }) {
             <StepHeading
               step={3}
               title="Lesson content"
-              description="Give SlideForge the lesson, whichever way you have it"
+              description="Upload the lesson page you saved from your browser"
             />
-
-            <p className="text-sm font-semibold">Paste Seqta HTML here</p>
-            <Textarea
-              id="lesson-html"
-              aria-label="Lesson HTML"
-              placeholder="Paste the raw lesson HTML here…"
-              className="min-h-32 font-mono text-xs"
-              value={builder.lessonHTML}
-              onChange={(event) => builder.setLessonHTML(event.target.value)}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="self-start"
-              disabled={!builder.lessonHTML.trim()}
-              onClick={builder.openPreview}
-            >
-              <SearchIcon data-icon="inline-start" />
-              Preview parsed content
-            </Button>
-
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" />
-              or
-              <span className="h-px flex-1 bg-border" />
-            </div>
-
-            <p className="text-sm font-semibold">Upload HTML file saved from your browser</p>
             <FieldDescription>
-              Use this when a lesson's Resources section won't paste in cleanly above. To save just
-              this lesson's page, open it, press Cmd+S in Chrome (choose "Webpage, HTML only"), then
-              upload the saved file here — we'll pull out its files and download them as a folder.
-              This does not build a presentation.
+              Open the lesson in Seqta's{" "}
+              <strong className="font-medium text-foreground">editor</strong> view (not the
+              student/parent preview) using{" "}
+              <strong className="font-medium text-foreground">Chrome</strong>, then save the whole
+              page: Cmd/Ctrl+S, choosing "Webpage, HTML only". Upload that file here — SlideForge
+              reads the lesson's titles, text, and resources straight out of it to build the
+              presentation. This step needs Chrome specifically — Safari, Edge, and Firefox save
+              pages differently and won't give you a file SlideForge can read.
             </FieldDescription>
             <Button
               type="button"
               variant="outline"
               className={cn(
-                "h-auto w-full flex-col whitespace-normal border-dashed py-4 text-center text-muted-foreground",
+                "h-auto w-full flex-col whitespace-normal border-dashed py-6 text-center text-muted-foreground",
                 savedPageDragOver && "border-primary bg-primary/5 text-foreground",
               )}
               onClick={() => savedPageInputRef.current?.click()}
@@ -319,13 +331,13 @@ export function BuildPanel({ builder }: { builder: Builder }) {
                 event.preventDefault();
                 setSavedPageDragOver(false);
                 const file = event.dataTransfer.files[0];
-                if (file) void builder.matchSavedPageFile(file);
+                if (file) void builder.handleSavedPageFile(file);
               }}
             >
               <FileCode2Icon />
               <span>
-                <strong className="font-medium text-foreground">Choose a file</strong> or drag and
-                drop the saved lesson page
+                <strong className="font-medium text-foreground">Choose the file</strong> — e.g.
+                "Lesson 6 SEQTA.html" — or drag and drop it
               </span>
             </Button>
             <input
@@ -336,11 +348,67 @@ export function BuildPanel({ builder }: { builder: Builder }) {
               tabIndex={-1}
               onChange={(event) => {
                 const file = event.target.files?.[0];
-                if (file) void builder.matchSavedPageFile(file);
+                if (file) void builder.handleSavedPageFile(file);
                 event.target.value = "";
               }}
             />
             <SavedPageStatus status={builder.savedPageStatus} />
+
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              optional
+              <span className="h-px flex-1 bg-border" />
+            </div>
+
+            <p className="text-sm font-semibold">Also add that page's "..._files" folder</p>
+            <FieldDescription>
+              Chrome saves this automatically, right next to the lesson page, every time you save it
+              — nothing extra to export. Add it too and any Legacy editor sections recover their
+              real text, images, and resources instead of appearing as a blank gap. This only works
+              when the page was saved in{" "}
+              <strong className="font-medium text-foreground">Chrome</strong>, from the{" "}
+              <strong className="font-medium text-foreground">editor</strong> view — the
+              student/parent preview's version is missing what's needed to match its images and
+              resources.
+            </FieldDescription>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto w-full flex-col whitespace-normal py-4 text-center text-muted-foreground"
+              onClick={() => companionFolderInputRef.current?.click()}
+            >
+              <FolderOpenIcon />
+              <span>
+                <strong className="font-medium text-foreground">Choose the folder</strong> — e.g.
+                "Lesson 6 SEQTA_files"
+              </span>
+            </Button>
+            <input
+              ref={companionFolderInputRef}
+              type="file"
+              webkitdirectory=""
+              directory=""
+              multiple
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(event) => {
+                const files = event.target.files;
+                if (files?.length) void builder.handleCompanionFolderFiles(files);
+                event.target.value = "";
+              }}
+            />
+            <CompanionFolderStatus status={builder.companionFolderStatus} />
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-start"
+              disabled={!builder.savedPageHTML}
+              onClick={builder.openPreview}
+            >
+              <SearchIcon data-icon="inline-start" />
+              Preview parsed content
+            </Button>
           </Field>
 
           <FieldSet>

@@ -35,7 +35,7 @@ export function PreviewModal({
 
         {blocks.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Paste lesson HTML to see it broken down here.
+            Upload your saved lesson page to see it broken down here.
           </p>
         ) : (
           <ul className="divide-y">

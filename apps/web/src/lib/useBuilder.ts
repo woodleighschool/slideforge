@@ -1,15 +1,12 @@
 import {
-  buildGenerationInput,
-  buildResourcesOnlyBundle,
+  buildGenerationInputFromSavedPage,
+  extractLessonBlocksFromSavedPage,
   importResourceFolder,
   importResourceZip,
-  matchSavedPageResources,
-  parseLessonHTML,
 } from "@slideforge/core";
-import type { LessonBlock, ResourceMap } from "@slideforge/core";
+import type { CompanionFileMap, LessonBlock, ResourceMap } from "@slideforge/core";
 import { useEffect, useState } from "react";
 
-import { downloadBytes } from "@/lib/downloadBytes";
 import { loadLastResourceZip, saveLastResourceZip, type LastResourceZip } from "@/lib/idbStore";
 
 export type ResourceStatus =
@@ -26,7 +23,13 @@ export type ForgeState =
 export type SavedPageStatus =
   | { kind: "idle" }
   | { kind: "reading" }
-  | { kind: "success"; matchedCount: number; unmatchedFilenames: string[] }
+  | { kind: "success"; fileName: string; blockCount: number }
+  | { kind: "error"; message: string };
+
+export type CompanionFolderStatus =
+  | { kind: "idle" }
+  | { kind: "reading" }
+  | { kind: "success"; folderName: string; fileCount: number }
   | { kind: "error"; message: string };
 
 export function useBuilder() {
@@ -34,12 +37,16 @@ export function useBuilder() {
   const [resources, setResources] = useState<ResourceMap | null>(null);
   const [resourceStatus, setResourceStatus] = useState<ResourceStatus>({ kind: "idle" });
   const [lastZipInfo, setLastZipInfo] = useState<LastResourceZip | null>(null);
-  const [lessonHTML, setLessonHTML] = useState("");
+  const [savedPageHTML, setSavedPageHTML] = useState("");
+  const [companionFiles, setCompanionFiles] = useState<CompanionFileMap | null>(null);
   const [outputFormat, setOutputFormat] = useState<"pptx" | "png">("pptx");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewBlocks, setPreviewBlocks] = useState<LessonBlock[]>([]);
   const [forgeState, setForgeState] = useState<ForgeState>({ kind: "idle" });
   const [savedPageStatus, setSavedPageStatus] = useState<SavedPageStatus>({ kind: "idle" });
+  const [companionFolderStatus, setCompanionFolderStatus] = useState<CompanionFolderStatus>({
+    kind: "idle",
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -116,46 +123,42 @@ export function useBuilder() {
   }
 
   function openPreview() {
-    setPreviewBlocks(lessonHTML.trim() ? parseLessonHTML(lessonHTML) : []);
+    setPreviewBlocks(
+      savedPageHTML
+        ? extractLessonBlocksFromSavedPage(savedPageHTML, companionFiles ?? undefined)
+        : [],
+    );
     setPreviewOpen(true);
   }
 
-  /** Separate from the paste-and-forge flow above: a saved lesson page is
-   * the whole Seqta app shell, not lesson content, so it's never run
-   * through buildGenerationInput/parseLessonHTML — this only ever looks
-   * for the Resources block and downloads the matched files, never a
-   * slide. */
-  async function matchSavedPageFile(file: File) {
-    if (!resources) {
-      setSavedPageStatus({
-        kind: "error",
-        message: "Load a resources folder or ZIP in step 2 first.",
-      });
-      return;
-    }
-
+  /** The saved lesson page is now the only source of lesson content — it
+   * drives the whole build, not just the Resources section, so this reads
+   * it once up front to confirm it actually has lesson modules in it. A new
+   * page clears any companion folder already loaded, since it almost
+   * certainly belongs to a different lesson now. */
+  async function handleSavedPageFile(file: File) {
+    setCompanionFiles(null);
+    setCompanionFolderStatus({ kind: "idle" });
     setSavedPageStatus({ kind: "reading" });
 
     try {
       const html = await file.text();
-      const { matched, unmatchedFilenames } = matchSavedPageResources(html, resources);
+      const blocks = extractLessonBlocksFromSavedPage(html);
 
-      if (matched.length === 0 && unmatchedFilenames.length === 0) {
+      if (blocks.length === 0) {
+        setSavedPageHTML("");
         setSavedPageStatus({
           kind: "error",
-          message: "No Resources section was found in that saved page.",
+          message:
+            'No lesson content was found in that file. Make sure you saved the lesson page itself (in Chrome: Cmd/Ctrl+S, then "Webpage, HTML only"), not just its HTML source.',
         });
         return;
       }
 
-      if (matched.length > 0) {
-        const outputName = presentationName.trim() || "Resources";
-        const bundle = await buildResourcesOnlyBundle(outputName, matched);
-        downloadBytes(bundle.bytes, bundle.fileName, "application/zip");
-      }
-
-      setSavedPageStatus({ kind: "success", matchedCount: matched.length, unmatchedFilenames });
+      setSavedPageHTML(html);
+      setSavedPageStatus({ kind: "success", fileName: file.name, blockCount: blocks.length });
     } catch (error) {
+      setSavedPageHTML("");
       setSavedPageStatus({
         kind: "error",
         message: error instanceof Error ? error.message : String(error),
@@ -163,18 +166,57 @@ export function useBuilder() {
     }
   }
 
+  /** The companion "<page>_files" folder Chrome saves alongside the lesson
+   * page — optional, but it's what lets Legacy editor sections recover
+   * their real text/images/resources instead of a blank placeholder. Only
+   * the small saved_resource*.html files inside it matter; everything else
+   * (Seqta's own multi-megabyte JS/CSS bundles) is never read. */
+  async function handleCompanionFolderFiles(fileList: FileList) {
+    const files = Array.from(fileList);
+    const folderName = files[0]?.webkitRelativePath.split("/")[0] || "selected folder";
+    setCompanionFolderStatus({ kind: "reading" });
+
+    try {
+      const htmlFiles = files.filter((f) => /\.html?$/i.test(f.name));
+      const entries = await Promise.all(
+        htmlFiles.map(async (f) => [f.name, await f.text()] as const),
+      );
+      const map: CompanionFileMap = new Map(entries);
+
+      if (map.size === 0) {
+        setCompanionFiles(null);
+        setCompanionFolderStatus({
+          kind: "error",
+          message:
+            'No saved HTML files were found in that folder. Make sure you selected the "..._files" folder Chrome saved next to the lesson page, not the lesson page itself.',
+        });
+        return;
+      }
+
+      setCompanionFiles(map);
+      setCompanionFolderStatus({ kind: "success", folderName, fileCount: map.size });
+    } catch (error) {
+      setCompanionFiles(null);
+      setCompanionFolderStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   async function forge() {
-    if (!lessonHTML.trim()) {
-      setForgeState({ kind: "error", message: "Paste your lesson HTML before forging." });
+    if (!savedPageHTML) {
+      setForgeState({ kind: "error", message: "Upload your saved lesson page before forging." });
       return;
     }
 
     setForgeState({ kind: "forging", message: "Assembling slides…" });
 
     try {
-      const input = buildGenerationInput({
+      const input = buildGenerationInputFromSavedPage({
         presentationName,
-        lessonHTML,
+        savedPageHTML,
+        companionFiles: companionFiles ?? undefined,
         resources: resources ?? new Map(),
       });
 
@@ -207,8 +249,8 @@ export function useBuilder() {
     resources,
     resourceStatus,
     lastZipInfo,
-    lessonHTML,
-    setLessonHTML,
+    savedPageHTML,
+    companionFiles,
     outputFormat,
     setOutputFormat,
     previewOpen,
@@ -216,12 +258,14 @@ export function useBuilder() {
     previewBlocks,
     forgeState,
     savedPageStatus,
+    companionFolderStatus,
     handleZipFile,
     handleFolderFiles,
     selectLastZip,
     dismissLastZipSuggestion: () => setLastZipInfo(null),
     openPreview,
-    matchSavedPageFile,
+    handleSavedPageFile,
+    handleCompanionFolderFiles,
     forge,
   };
 }
