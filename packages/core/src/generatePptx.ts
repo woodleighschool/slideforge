@@ -439,7 +439,10 @@ async function addContentSlide(
           currentSlide.addText(
             [
               { text: resource.filename, options: { bold: true, breakLine: true } },
-              { text: "Double-click to open", options: { italic: true, color: "666666" } },
+              {
+                text: "Double-click to open (outside Slide Show — press Esc first)",
+                options: { italic: true, color: "666666" },
+              },
             ] as never,
             {
               x: 1.35,
