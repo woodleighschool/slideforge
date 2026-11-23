@@ -1,5 +1,4 @@
 [tasks.dev]
-description = "Generate Worker types and start the development server"
 depends = ["//:deps"]
 run = "pnpm run dev"
 
@@ -8,12 +7,10 @@ depends = ["//:deps"]
 run = "pnpm run build"
 
 [tasks.serve]
-description = "Serve the production build"
 depends = ["//:deps"]
 run = "pnpm run preview"
 
 [tasks.deploy]
-description = "Deploy the web app to Cloudflare Workers"
 depends = ["//:deps"]
 run = "pnpm run deploy"
 
@@ -26,7 +23,7 @@ depends = ["//:deps"]
 run = "pnpm run lint:fix"
 
 [tasks.typecheck]
-description = "Generate Worker types and type-check"
+description = "Regenerates Worker types"
 depends = ["//:deps"]
 run = "pnpm run typecheck"
 
@@ -37,10 +34,8 @@ run = "pnpm run format"
 run = "oxfmt --check ."
 
 [tasks.types]
-description = "Regenerate Cloudflare Worker types"
 depends = ["//:deps"]
 run = "pnpm run types"
 
 [tasks.clean]
-description = "Remove build output and Wrangler state"
 run = "rm -rf dist .wrangler"

@@ -21,5 +21,4 @@ run = "pnpm run format"
 run = "pnpm run format:check"
 
 [tasks.clean]
-description = "Remove TypeScript and Vitest caches"
 run = "rm -rf node_modules/.tmp .vitest"

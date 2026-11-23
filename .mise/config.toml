@@ -25,16 +25,13 @@ depends = ["fmt-check", "lint", "test", "build"]
 run = { task = "//apps/web:dev" }
 
 [tasks.build]
-description = "Type-check the core package and build the web app"
 depends = ["//packages/core:typecheck", "//apps/web:build"]
 
 [tasks.deploy]
-description = "Build and deploy the web app to Cloudflare Workers"
 depends = ["build"]
 run = { task = "//apps/web:deploy" }
 
 [tasks.test]
-description = "Test the core package"
 depends = ["//packages/core:test"]
 
 [tasks.typecheck]
